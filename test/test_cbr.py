@@ -10,8 +10,8 @@
 import time
 
 from common.config import Config
-from data_preparation.preprocessing import load_datas, get_type_percentage, get_avg_type_percentage, get_type_cate
-from content_based_rec.content_based_recall import get_up, recom
+from data_preparation.preprocessing import load_datas, get_avg_type_percentage, get_type_cate
+from model.content_based_recall import get_up, recom
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
 
     resource_dir = "E:/cbim_revit_batch/resource"
     # 数据预处理
-    data_json_list = load_datas(Config(resource_dir), 1)
+    data_json_list = load_datas(Config(resource_dir))
 
     # 获取type的use_percent
     # tp = get_type_percent(data_json_list[0])

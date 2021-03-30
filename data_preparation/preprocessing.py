@@ -69,6 +69,22 @@ def load_datas(config: Config, num: int = None):
     return datas
 
 
+# ======================================================================================================================
+# 问题出在了用户的刻画上，需要规范好推荐的输入的参数，比如给定专业、建筑类型、某个category、某个family、某个type、某个关键词之类的，这些参数可有可无。
+# 一是说我要通过给定一些参数去描述一个新的用户（也即是一个新的Revit项目），根据这些关键词如推荐一些某个family、type给我的用户，
+#    这种情况就直接根据一些标签查表去返回topk的对象
+# 二是说通过当前检索页面中所展示的图元的一些属性来推荐一些family、type给到当前用户。这一过程主要需要的是构建type之间的关联性和相似度，
+#    这种情况需要具体的某个图元获取一些标签，然后查表返回topk的对象
+# 总的来说，输入信息可以简要的定义为目前图元所包含的一些字段。
+# 目前看的content-based和LFM都是根据已有的数据建立了user profile，在预测时也只针对表中已有的用户才能去做推荐，也就是将用户提炼得到用户up，
+#     然后根据用户id去获取up，再由up中的标签去查表然后进行推荐。由此分析，想要完成根据一些关键词的推荐，就需要弱化用户up的概念，去直接根据关键词
+#     获取推荐的对象列表。
+# 因此，需要考虑的一个问题是如何构建用户up，以便于后期去掉不影响推荐流程。目前根据每个type再单个rvt文件中的使用率和category、family、type
+#     生成的标签来构建用户up、type_info是有问题的，可能是标签权重设计的问题，这样处理后推荐系统输入的对象也就是极度依赖于这些标签，
+#     并不是一个理想的处理方法。
+# ======================================================================================================================
+
+
 def get_type_percentage(parsed_json: dir):
     """
     由解析后的json获取当前rvt文件的各个type的使用率
@@ -81,7 +97,9 @@ def get_type_percentage(parsed_json: dir):
     record = {}
     for id in parsed_json["element_info"]:
         elem = parsed_json["element_info"][id]
-        if not elem["TypeName"] and not elem["TypeId"]:  # 没有type的过滤掉
+        if elem["CategoryName"] is None or elem["FamilyName"] is None or elem["TypeName"] is None:  # 过滤category、family、type为空的
+            continue
+        if elem["FamilyType"] not in ["HostObject", "FamilyInstance"]:  # 过滤其他，包含不可见图元以及非常用图元。
             continue
         type_id = elem["TypeId"]  # str(int(elem["TypeId"].split("-")[-1], 16))
         if type_id not in record:
@@ -90,6 +108,9 @@ def get_type_percentage(parsed_json: dir):
     return {type_id: round(record[type_id] / len(parsed_json["element_info"]) * 100, 3) for type_id in record}
 
 
+# ======================================================================================================================
+# =====                                    Content based recall                                                    =====
+# ======================================================================================================================
 def get_avg_type_percentage(json_list: list):
     """
     获取某个类型在项目中的平均使用占比
@@ -132,17 +153,22 @@ def get_type_cate(json_list: list, avg_type_percentage: dict):
     for user in json_list:
         for id in user["type_info"]:
             type = user["type_info"][id]
+            if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
+                continue
+
             if type["FamilyType"] == "HostObject":  # 系统族
                 _tmp = list(map(str.strip, re.split(r"[_-]", type["Name"])))
                 cate_list = [type["FamilyType"] + "_" + type["CategoryName"] + "_" + type["FamilyName"]] + _tmp
                 # ratios = [1 / 4, 1 / 4, 1 / 4] + len(_tmp) * [1 / 4 / len(_tmp)]
                 ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+
             elif type["FamilyType"] == "FamilyInstance":  # 载入族、内建族
                 _tmp1 = list(map(str.strip, re.split(r"[_-]", type["FamilyName"])))
                 _tmp2 = list(map(str.strip, re.split(r"[_-]", type["Name"])))
                 cate_list = [type["FamilyType"] + "_" + type["CategoryName"]] + _tmp1 + _tmp2
                 # ratios = [1 / 4, 1 / 4] + len(_tmp1) * [1 / 4 / len(_tmp1)] + len(_tmp2) * [1 / 4 / len(_tmp2)]
                 ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+
             else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
                 continue
             # if typeid not in item_cate:
@@ -169,3 +195,34 @@ def get_type_cate(json_list: list, avg_type_percentage: dict):
             cate_item_sort[cate].append(c[0] + "_" + str(c[1]))
 
     return item_cate, cate_item_sort
+
+
+# ======================================================================================================================
+# =====                                            LFM                                                             =====
+# ======================================================================================================================
+def get_type_info(json_list: list):
+    """
+    获取type的信息
+    :param json_list:
+    :return:
+    """
+    if not json_list:
+        return {}
+    type_info = {}
+    for user in json_list:
+        for id in user["type_info"]:
+            type = user["type_info"][id]
+            if type["FamilyType"] not in ["HostObject", "FamilyInstance"]:  # 过滤其他，包含不可见图元以及非常用图元。
+                continue
+            if type["Id"] not in type_info:
+                type_info[type["Id"]] = [type["FamilyType"], type["CategoryName"], type["FamilyName"], type["Name"]]
+    return type_info
+
+
+# def get_avg_type_percentage(json_list: list):
+# 获取某个类型在项目中的平均使用占比，同96-113行
+
+
+# ======================================================================================================================
+# =====                                                                                                            =====
+# ======================================================================================================================

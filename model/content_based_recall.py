@@ -8,7 +8,7 @@
 @Date   ：2020/9/16 14:21
 ================================================="""
 from __future__ import division
-from data_preparation.preprocessing import get_type_percentage
+from data_preparation.preprocessing import get_type_percentage, get_avg_type_percentage
 import operator
 
 
