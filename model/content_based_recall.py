@@ -5,7 +5,7 @@
 @IDE    ：PyCharm
 @Author ：Li Bei
 @Email  : libei@cadg.cn
-@Date   ：2020/9/16 14:21
+@Date   ：2021/3/26 10:11
 ================================================="""
 from __future__ import division
 from data_preparation.preprocessing import get_type_percentage, get_avg_type_percentage
