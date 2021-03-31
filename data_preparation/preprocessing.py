@@ -12,6 +12,8 @@ import json
 import os
 import operator
 import re
+from scipy.sparse import coo_matrix
+import numpy as np
 from common.config import Config
 
 
@@ -224,5 +226,109 @@ def get_type_info(json_list: list):
 
 
 # ======================================================================================================================
-# =====                                                                                                            =====
+# =====                                            PR                                                              =====
 # ======================================================================================================================
+def get_graph_from_data(json_list: list):
+    """
+
+    :param json_list:
+    :return:  a dict: {user1:{item1:1, item2:1}, item1:{user1:1, user2:1}}
+    """
+    if not json_list:
+        return {}
+    percent_thr = 0.5
+    graph = {}
+
+    for user in json_list:
+        if len(user["type_info"]) == 0:  # 过滤掉type为空的user，即该user没有对推荐按列表中的任何type进行过行为，比如红线、轴网类型的rvt文件
+            continue
+        user_id = user["project_info"]["FilePath"] + "\\\\" + user["project_info"]["FileName"]
+        user_percentage = get_type_percentage(user)
+        if user_id not in graph:
+            graph[user_id] = {}
+        for id in user["type_info"]:
+            type = user["type_info"][id]
+            if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
+                continue
+            if type["FamilyType"] not in ["HostObject", "FamilyInstance"]:  # 过滤其他，包含不可见图元以及非常用图元。
+                continue
+            if user_percentage[type["Id"]] < percent_thr:  # 使用率低于阈值过滤
+                continue
+            type_id = "type_" + type["Id"]
+            graph[user_id][type_id] = 1
+            if type_id not in graph:
+                graph[type_id] = {}
+            graph[type_id][user_id] = 1
+
+    # score_thr = 4.0
+    # linenum = 0
+    # fp = open("../data_preparation/PR_sample.txt")
+    # for line in fp:
+    #     if linenum == 0:
+    #         linenum += 1
+    #         continue
+    #     item = line.strip().split(",")
+    #     if len(item) < 3:
+    #         continue
+    #     user_id, type_id, rating = item[0], "type_" + item[1], item[2]
+    #     if float(rating) < score_thr:
+    #         continue
+    #     if user_id not in graph:
+    #         graph[user_id] = {}
+    #     graph[user_id][type_id] = 1
+    #     if type_id not in graph:
+    #         graph[type_id] = {}
+    #     graph[type_id][user_id] = 1
+    # fp.close()
+    return graph
+
+
+# def get_type_info(json_list: list):
+# 获取type的信息，同203-219行
+
+
+def graph_to_m(graph: dict):
+    """
+
+    :param graph: user item graph
+    :return: a coo_matrix, sparse mat M;
+             a list, total user item point;
+             a dict, map all point to row index;
+    """
+    vertex = list(graph.keys())
+    address_dict = {}
+    for idx in range(len(vertex)):
+        address_dict[vertex[idx]] = idx
+    row = []
+    col = []
+    data = []
+    for elemi in graph:
+        weight = round(1/len(graph[elemi]), 3)
+        row_idx = address_dict[elemi]
+        for elemj in graph[elemi]:
+            col_idx = address_dict[elemj]
+            row.append(row_idx)
+            col.append(col_idx)
+            data.append(weight)
+    row = np.array(row)
+    col = np.array(col)
+    data = np.array(data)
+    m = coo_matrix((data, (row, col)), shape=(len(vertex), len(vertex)))
+    return m, vertex, address_dict
+
+
+def mat_all_point(m_mat: coo_matrix, vertex: list, alpha: float):
+    """
+    获取E-alpha*m_mat.T
+    :param m_mat:
+    :param vertex: total user and item point
+    :param alpha: the prob for random walking
+    :return:
+    """
+    total_len = len(vertex)
+    row = np.array(range(total_len))
+    col = np.array(range(total_len))
+    data = np.ones(total_len)
+    eye_t = coo_matrix((data, (row, col)), shape=(total_len, total_len))
+    print(eye_t.todense())
+    return eye_t.tocsr() - alpha * m_mat.tocsr().transpose()
