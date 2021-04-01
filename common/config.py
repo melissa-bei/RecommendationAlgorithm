@@ -18,7 +18,7 @@ class Config(object):
         """
         resource_dir = "E:/cbim_revit_batch/resource"
         try:
-            resource_dir = open("../common/resource_dir.txt", "r").readline().strip()
+            resource_dir = open("common/resource_dir.txt", "r").readline().strip()
         except Exception as ex:
             print(ex)
         if resource_dir == "":

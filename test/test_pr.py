@@ -9,7 +9,7 @@
 ================================================="""
 import time
 import sys
-sys.path.append('..')
+from __init__ import *
 from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, graph_to_m, mat_all_point
 from model.PR import get_graph_from_data, get_one_user_recom, get_one_user_recom_by_mat

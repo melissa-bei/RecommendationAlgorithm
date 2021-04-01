@@ -9,7 +9,7 @@
 ================================================="""
 import time
 import sys
-sys.path.append('..')
+from __init__ import *
 from common.config import Config
 from data_preparation.preprocessing import load_datas, get_avg_type_percentage, get_type_cate
 from model.content_based_recall import get_up, recom

@@ -9,7 +9,7 @@
 ================================================="""
 import time
 import sys
-sys.path.append('..')
+from __init__ import *
 from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, get_avg_type_percentage
 from model.LFM import get_train_data, lfm_train_func, get_recom_result, ana_recom_result
