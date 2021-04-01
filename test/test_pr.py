@@ -8,7 +8,8 @@
 @Date   ：2021/3/30 14:23
 ================================================="""
 import time
-
+import sys
+sys.path.append('..')
 from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, graph_to_m, mat_all_point
 from model.PR import get_graph_from_data, get_one_user_recom, get_one_user_recom_by_mat
@@ -17,9 +18,8 @@ from model.PR import get_graph_from_data, get_one_user_recom, get_one_user_recom
 def main():
     time_start = time.time()
 
-    resource_dir = "E:/cbim_revit_batch/resource"
     # 数据预处理
-    data_json_list = load_datas(Config(resource_dir))
+    data_json_list = load_datas(Config())
     # p = get_graph_from_data(data_json_list)
     # print(p["type_6bfab83c-c282-422e-a6ba-d7c945b382f8-000fcf71"])
 

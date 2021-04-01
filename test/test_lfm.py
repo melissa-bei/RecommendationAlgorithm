@@ -8,7 +8,8 @@
 @Date   ：2021/3/29 14:35
 ================================================="""
 import time
-
+import sys
+sys.path.append('..')
 from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, get_avg_type_percentage
 from model.LFM import get_train_data, lfm_train_func, get_recom_result, ana_recom_result
@@ -18,8 +19,7 @@ def model_train_process():
     """
     test lfm model train
     """
-    resource_dir = "E:/cbim_revit_batch/resource"
-    data_json_list = load_datas(Config(resource_dir))
+    data_json_list = load_datas(Config())
     train_data = get_train_data(data_json_list)
     user_vec, type_vec = lfm_train_func(train_data, 50, 0.01, 0.1, 50)
     # print(user_vec, type_vec)
@@ -34,9 +34,8 @@ def model_train_process():
 def test_main():
     time_start = time.time()
 
-    resource_dir = "E:/cbim_revit_batch/resource"
     # 数据预处理
-    data_json_list = load_datas(Config(resource_dir))
+    data_json_list = load_datas(Config())
 
     # # 获取item信息
     # item_info = get_type_info(data_json_list)

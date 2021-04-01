@@ -12,11 +12,17 @@ import pandas as pd
 
 
 class Config(object):
-    def __init__(self, resource_dir):
+    def __init__(self):
         """
         资源路径相关配置
-        :param resource_dir:
         """
+        resource_dir = "E:/cbim_revit_batch/resource"
+        try:
+            resource_dir = open("../common/resource_dir.txt", "r").readline().strip()
+        except Exception as ex:
+            print(ex)
+        if resource_dir == "":
+            resource_dir = "E:/cbim_revit_batch/resource"
         self.resource_dir = resource_dir
         self.xlsx_path = os.path.join(self.resource_dir, "revit模型项目级信息.xlsx")
         self.json_dir = os.path.join(self.resource_dir, "exportedjson")
