@@ -210,14 +210,20 @@ def get_type_info(json_list: list):
     """
     if not json_list:
         return {}
+    percent_thr = 0.5
     type_info = {}
     for user in json_list:
+        user_percentage = get_type_percentage(user)
         for id in user["type_info"]:
             type = user["type_info"][id]
             if type["FamilyType"] not in ["HostObject", "FamilyInstance"]:  # 过滤其他，包含不可见图元以及非常用图元。
                 continue
+            if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
+                continue
             if type["Id"] not in type_info:
                 type_info[type["Id"]] = [type["FamilyType"], type["CategoryName"], type["FamilyName"], type["Name"]]
+            if user_percentage[type["Id"]] < percent_thr:  # 使用率低于阈值过滤
+                continue
     return type_info
 
 
@@ -230,7 +236,7 @@ def get_type_info(json_list: list):
 # ======================================================================================================================
 def get_graph_from_data(json_list: list):
     """
-
+    从数据中构建二分图
     :param json_list:
     :return:  a dict: {user1:{item1:1, item2:1}, item1:{user1:1, user2:1}}
     """
@@ -289,7 +295,7 @@ def get_graph_from_data(json_list: list):
 
 def graph_to_m(graph: dict):
     """
-
+    由dict类型的graph转为矩阵
     :param graph: user item graph
     :return: a coo_matrix, sparse mat M;
              a list, total user item point;
@@ -332,3 +338,32 @@ def mat_all_point(m_mat: coo_matrix, vertex: list, alpha: float):
     eye_t = coo_matrix((data, (row, col)), shape=(total_len, total_len))
     print(eye_t.todense())
     return eye_t.tocsr() - alpha * m_mat.tocsr().transpose()
+
+
+# ======================================================================================================================
+# =====                                        item2vec                                                            =====
+# ======================================================================================================================
+def produce_train_data(json_list: list, out_file: str):
+    """
+    生成item2vec的训练数据
+    :param json_list:
+    :param out_file:
+    :return:
+    """
+    if not json_list:
+        return
+    percent_thr = 0.5  # type percent的阈值
+    record = {}
+    for user in json_list:
+        user_percentage = get_type_percentage(user)
+        user_id = user["project_info"]["FilePath"] + "\\\\" + user["project_info"]["FileName"]  # user_id由路径加文件名生成
+        for type_id in user_percentage:
+            if user_percentage[type_id] < percent_thr:  # 低于阈值的过滤
+                continue
+            if user_id not in record:
+                record[user_id] = []
+            record[user_id].append(type_id)
+    fw = open(out_file, "w+")
+    for user_id in record:
+        fw.write(" ".join(record[user_id]) + "\n")
+    fw.close()

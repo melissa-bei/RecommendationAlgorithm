@@ -23,7 +23,7 @@ def get_dim_dict(json_list: list, dim_name: str):
         return {}
 
 
-def get_up(item_cate: {}, json_list: []):
+def get_up(item_cate: dict, json_list: list):
     """
     用户刻画，即一个rvt文件的特征刻画
     :param item_cate: key：item_id，value：dict，key cate value percent
@@ -38,12 +38,12 @@ def get_up(item_cate: {}, json_list: []):
     up = {}
     for user in json_list:
         user_percentage = get_type_percentage(user)
+        user_id = user["project_info"]["FilePath"]+"\\\\"+user["project_info"]["FileName"]  # user_id由路径加文件名生成
         for type_id in user_percentage:
             if user_percentage[type_id] < percent_thr:  # 低于阈值的过滤
                 continue
             if type_id not in item_cate:  # item_cate中没有统计的cate也过滤掉
                 continue
-            user_id = user["project_info"]["FilePath"]+"\\\\"+user["project_info"]["FileName"]  # user_id由路径加文件名生成
             if user_id not in record:
                 record[user_id] = {}
             for fix_cate in item_cate[type_id]:
