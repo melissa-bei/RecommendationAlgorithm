@@ -24,7 +24,8 @@ def model_train_process():
     user_vec, type_vec = lfm_train_func(train_data, 50, 0.01, 0.1, 50)
     # print(user_vec, type_vec)
     for user in data_json_list:
-        user_id = user["project_info"]["FilePath"]+"\\\\"+user["project_info"]["FileName"]
+        _, tmp_elem = next(iter(user[1].items()))
+        user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]
         print(user_id)
         recom_list = get_recom_result(user_vec, type_vec, user_id)
         # print(recom_list)

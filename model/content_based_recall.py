@@ -38,7 +38,8 @@ def get_up(item_cate: dict, json_list: list):
     up = {}
     for user in json_list:
         user_percentage = get_type_percentage(user)
-        user_id = user["project_info"]["FilePath"]+"\\\\"+user["project_info"]["FileName"]  # user_id由路径加文件名生成
+        _, tmp_elem = next(iter(user[1].items()))
+        user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]  # user_id由路径加文件名生成
         for type_id in user_percentage:
             if user_percentage[type_id] < percent_thr:  # 低于阈值的过滤
                 continue

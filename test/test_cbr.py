@@ -9,7 +9,6 @@
 ================================================="""
 import time
 import sys
-from __init__ import *
 from common.config import Config
 from data_preparation.preprocessing import load_datas, get_avg_type_percentage, get_type_cate
 from model.content_based_recall import get_up, recom
@@ -21,8 +20,8 @@ def main():
     # 数据预处理
     data_json_list = load_datas(Config())
 
-    # 获取type的use_percent
-    # tp = get_type_percent(data_json_list[0])
+    # 获取type的use_percentage
+    # tp = get_type_percentage(data_json_list[0])
     avgp = get_avg_type_percentage(data_json_list)
     # print(len(avgp))
     # print(avgp["e7740737-f8bf-4b07-a870-a2504a4ea87a-000ae715"])

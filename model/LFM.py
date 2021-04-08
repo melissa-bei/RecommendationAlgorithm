@@ -27,7 +27,8 @@ def get_train_data(json_list: []):
     avgp = get_avg_type_percentage(json_list)
     for user in json_list:
         user_percentage = get_type_percentage(user)
-        user_id = user["project_info"]["FilePath"]+"\\\\"+user["project_info"]["FileName"]  # user_id由路径加文件名生成
+        _, tmp_elem = next(iter(user[1].items()))
+        user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]  # user_id由路径加文件名生成
         if user_id not in pos_dict:
             pos_dict[user_id] = []
         if user_id not in neg_dict:
