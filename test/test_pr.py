@@ -14,10 +14,11 @@ from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, graph_to_m, mat_all_point
 from model.PR import get_graph_from_data, get_one_user_recom, get_one_user_recom_by_mat
 
+from util import print_run_time
 
-def main():
-    time_start = time.time()
 
+@print_run_time
+def test_pr_main():
     # 数据预处理
     preprocessed_data = load_datas(Config())
     # p = get_graph_from_data(data_json_list)
@@ -38,9 +39,6 @@ def main():
             num += 1
     print(num)
 
-    time_end = time.time()
-    print('time cost {}s'.format(time_end - time_start))
-
 
 if __name__ == "__main__":
-    main()
+    test_pr_main()

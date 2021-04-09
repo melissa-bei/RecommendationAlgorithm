@@ -13,10 +13,11 @@ from common.config import Config
 from data_preparation.preprocessing import load_datas, get_avg_type_percentage, get_type_cate
 from model.content_based_recall import get_up, recom
 
+from util import print_run_time
 
-def main():
-    time_start = time.time()
 
+@print_run_time
+def test_cbr_main():
     # 数据预处理
     preprocessed_data = load_datas(Config())
 
@@ -39,9 +40,7 @@ def main():
         print("------------recom result--------------")
         for item in recom(cate_item_sort, up, proj_id)[proj_id]:
             print(item)
-    time_end = time.time()
-    print('time cost {}s'.format(time_end - time_start))
 
 
 if __name__ == "__main__":
-    main()
+    test_cbr_main()

@@ -15,6 +15,8 @@ import gensim
 import word2vec
 import operator
 
+from util import print_run_time
+
 
 def produce_train_data(data: dict, out_file: str):
     """
@@ -98,6 +100,7 @@ def load_type_vec(type_vec_file):
     return type_vec
 
 
+@print_run_time
 def test_word2vec_main():
     """
     测试Word2Vec模型
@@ -142,6 +145,7 @@ def test_word2vec_main():
     cal_type_sim(load_type_vec(type_vec_file), "e3e052f9-0156-11d5-9301-0000863f27ad-0000018e", output_file)
 
 
+@print_run_time
 def test_gensim_word2vec_main(data: list):
     """
     测试gensim中Word2Vec模型

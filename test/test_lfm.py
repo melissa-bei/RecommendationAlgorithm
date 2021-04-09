@@ -14,8 +14,11 @@ from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, get_avg_type_percentage
 from model.LFM import get_train_data, lfm_train_func, get_recom_result, ana_recom_result
 
+from util import print_run_time
 
-def model_train_process():
+
+@print_run_time
+def test_lfm_main():
     """
     test lfm model train
     """
@@ -30,9 +33,8 @@ def model_train_process():
         ana_recom_result(preprocessed_data, train_data, proj_key, recom_list)
 
 
-def test_main():
-    time_start = time.time()
-
+@print_run_time
+def test_get_train_data_main():
     # 数据预处理
     preprocessed_data = load_datas(Config())
 
@@ -50,10 +52,7 @@ def test_main():
     print(len(train_data))
     print(train_data[:50])
 
-    time_end = time.time()
-    print('time cost {}s'.format(time_end - time_start))
-
 
 if __name__ == "__main__":
-    # test_main()
-    model_train_process()
+    # test_get_train_data_main()
+    test_lfm_main()
