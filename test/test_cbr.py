@@ -33,11 +33,12 @@ def main():
 
     up = get_up(item_cate, data_json_list)
     print(len(up))
-    user_id = "E:\\\\cbim_revit_batch\\\\resource\\\\exportedjson\\\\02\\ 清华大学深圳国际校区\\\\02-初步设计\\\\02-建筑\\\\20190122建筑提图\\\\B座\\\\18172-B-AR&ST-F1~RF-center_A-yanxt_0122提资（房间名称更新）"
-    print(up[user_id])
 
-    for item in recom(cate_item_sort, up, user_id)[user_id]:
-        print(item)
+    for user_id in up:
+        print(up[user_id])
+        print("------------recom result--------------")
+        for item in recom(cate_item_sort, up, user_id)[user_id]:
+            print(item)
     time_end = time.time()
     print('time cost {}s'.format(time_end - time_start))
 

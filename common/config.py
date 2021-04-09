@@ -49,11 +49,11 @@ class Config(object):
             if pd.isnull(df['file_name'].values[r]) | pd.isnull(df['file_path'].values[r]):  # 名字为空过滤
                 continue
             if (df['file_name'].values[r].replace("_已分离", "").replace(".rvt", "") == file_name.replace("_已分离", ""))\
-               & (df['file_path'].values[r] == file_path.replace("\\\\", "\\").replace("\\ ", " ")[len(self.json_dir)+1:]):
+               & (df['file_path'].values[r] == file_path.replace("\\\\", "\\").replace("\\ ", " ").replace("\\.", ".")[len(self.json_dir)+1:]):
                 project = original_json["project_info"]
 
                 project["Name"] = (project["Name"], df['project_name'][r])[~pd.isnull(df['project_name'][r])]
-                project["Number"] = (project["Number"], df['project_name'][r])[~pd.isnull(df['project_name'][r])]
+                project["Number"] = (project["Number"], df['project_number'][r])[~pd.isnull(df['project_number'][r])]
                 project["IssueDate"] = (project["IssueDate"], df['project_issue_date'][r])[~pd.isnull(df['project_issue_date'][r])]
                 project["Status"] = (project["Status"], df['project_phase'][r])[~pd.isnull(df['project_phase'][r])]
                 project["PlaceName"] = (project["PlaceName"], df['project_address'][r])[~pd.isnull(df['project_address'][r])]

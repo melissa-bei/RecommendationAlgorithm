@@ -12,17 +12,6 @@ from data_preparation.preprocessing import get_type_percentage, get_avg_type_per
 import operator
 
 
-def get_dim_dict(json_list: list, dim_name: str):
-    """
-    根据指定维度名获取频次字典对象
-    :param json_list:
-    :param dim_name: 可选category，family，type
-    :return:
-    """
-    if not json_list:
-        return {}
-
-
 def get_up(item_cate: dict, json_list: list):
     """
     用户刻画，即一个rvt文件的特征刻画
@@ -38,7 +27,7 @@ def get_up(item_cate: dict, json_list: list):
     up = {}
     for user in json_list:
         user_percentage = get_type_percentage(user)
-        _, tmp_elem = next(iter(user[1].items()))
+        tmp_elem = user["element"][0]
         user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]  # user_id由路径加文件名生成
         for type_id in user_percentage:
             if user_percentage[type_id] < percent_thr:  # 低于阈值的过滤
