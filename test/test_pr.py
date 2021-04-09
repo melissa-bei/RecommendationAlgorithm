@@ -19,18 +19,18 @@ def main():
     time_start = time.time()
 
     # 数据预处理
-    data_json_list = load_datas(Config())
+    preprocessed_data = load_datas(Config())
     # p = get_graph_from_data(data_json_list)
     # print(p["type_6bfab83c-c282-422e-a6ba-d7c945b382f8-000fcf71"])
 
     # get_one_user_recom([])
-    recom_result_base = get_one_user_recom(data_json_list)
+    recom_result_base = get_one_user_recom(preprocessed_data)
 
     # graph = get_graph_from_data(data_json_list)
     # m, vertex, address_dict = graph_to_m(graph)
     # print(mat_all_point(m, vertex, 0.8))
 
-    recom_result_mat = get_one_user_recom_by_mat(data_json_list)
+    recom_result_mat = get_one_user_recom_by_mat(preprocessed_data)
 
     num = 0
     for elem in recom_result_base:

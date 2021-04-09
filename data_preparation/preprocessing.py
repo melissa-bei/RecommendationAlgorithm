@@ -29,7 +29,7 @@ def parse_json(json_name: str, config: Config):
     json_data = config.update_proj_info(json_data)
     # 将type id换为uniqueid
     new_type_infos = {}
-    for _, type in json_data["type_info"].items():
+    for type in json_data["type_info"].values():
         new_type_infos[type["Id"]] = type
     # 将项目信息平铺到图元，并进行数据清洗
     new_element_infos = []
@@ -59,7 +59,7 @@ def load_datas(config: Config, num: int = 100):
     从资源路径下加载数据集，即文件夹下所有json文件，将属于同一个项目下的所有rvt中的type和图元合并起来
     :param num: 测试参数，加载前num个json文件
     :param config: 资源路径配置类
-    :return datas: [({"id":{ }, ...}->"type_info", {"id":{ }, ...}}->"element_info"),...]
+    :return datas: {"proj1": {"type": {"type_id1": {}, ...}, "element": {"element_id": {}, ...}}, "user_id2": {}, ...}
     """
     datas = {}
     count = 0
@@ -78,7 +78,7 @@ def load_datas(config: Config, num: int = 100):
             # 如果rvt文件从属于同一个项目，则将type_info和element_info合并起来
             datas[key]["type"].update(json_data["type"])
             datas[key]["element"] += json_data["element"]
-    return datas.values()
+    return datas
 
 
 # ======================================================================================================================
@@ -97,7 +97,7 @@ def load_datas(config: Config, num: int = 100):
 # ======================================================================================================================
 
 
-def get_type_percentage(parsed_json: dir):
+def get_type_percentage(parsed_json: dict):
     """
     由解析后的json获取当前rvt文件的各个type的使用率
     :param parsed_json:
@@ -122,27 +122,27 @@ def get_type_percentage(parsed_json: dir):
 # ======================================================================================================================
 # =====                                    Content based recall                                                    =====
 # ======================================================================================================================
-def get_avg_type_percentage(json_list: list):
+def get_avg_type_percentage(data: dict):
     """
     获取某个类型在项目中的平均使用占比
-    :param json_list:
+    :param data:
     :return:
     """
-    if not json_list:
+    if not data:
         return {}
 
     record = {}
-    for user in json_list:
-        user_percentage = get_type_percentage(user)
-        for type_id in user_percentage:
+    for proj_key, proj in data.items():
+        proj_percentage = get_type_percentage(proj)
+        for type_id in proj_percentage:
             if type_id not in record:
                 record[type_id] = [0, 0]
-            record[type_id][0] += user_percentage[type_id]
+            record[type_id][0] += proj_percentage[type_id]
             record[type_id][1] += 1
     return {type_id: round(record[type_id][0] / record[type_id][1], 3) for type_id in record}
 
 
-def get_type_cate(json_list: list, avg_type_percentage: dict):
+def get_type_cate(data: dict, avg_type_percentage: dict):
     """
     获取type的相关标签，包含category、family、type
     hostobject属性都在name中
@@ -152,18 +152,18 @@ def get_type_cate(json_list: list, avg_type_percentage: dict):
 
     注：没有type的过滤掉
     :param avg_type_percentage:
-    :param json_list:
+    :param data:
     :return:
     """
-    if not json_list:
+    if not data:
         return {}
     topk = 100  # 取每个标签下的前topk个type（item）
     item_cate = {}
     record = {}
     cate_item_sort = {}
-    for user in json_list:
-        for id in user["type"]:
-            type = user["type"][id]
+    for proj_key, proj in data.items():
+        for type_id in proj["type"]:
+            type = proj["type"][type_id]
             if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
                 continue
 
@@ -186,17 +186,17 @@ def get_type_cate(json_list: list, avg_type_percentage: dict):
             #     item_cate[typeid] = {}
             # for idx in range(len(cate_list)):
             #     item_cate[typeid][cate_list[idx]] = ratios[idx]
-            if type["Id"] not in item_cate:
-                item_cate[type["Id"]] = {}
+            if type_id not in item_cate:
+                item_cate[type_id] = {}
             for idx in range(len(cate_list)):
-                item_cate[type["Id"]][cate_list[idx]] = ratios[idx]
+                item_cate[type_id][cate_list[idx]] = ratios[idx]
 
     # 获取每个cate下item的avg_percent
-    for typeid in item_cate:
-        for cate in item_cate[typeid]:
+    for type_id in item_cate:
+        for cate in item_cate[type_id]:
             if cate not in record:
                 record[cate] = {}
-            record[cate][typeid] = avg_type_percentage.get(typeid, 0)  # 每个cate下每个type的平均percent
+            record[cate][type_id] = avg_type_percentage.get(type_id, 0)  # 每个cate下每个type的平均percent
 
     # 排序并装载
     for cate in record:
@@ -211,27 +211,27 @@ def get_type_cate(json_list: list, avg_type_percentage: dict):
 # ======================================================================================================================
 # =====                                            LFM                                                             =====
 # ======================================================================================================================
-def get_type_info(json_list: list):
+def get_type_info(data: dict):
     """
     获取type的信息
-    :param json_list:
+    :param data:
     :return:
     """
-    if not json_list:
+    if not data:
         return {}
     percent_thr = 0.5
     type_info = {}
-    for user in json_list:
-        user_percentage = get_type_percentage(user)
-        for id in user["type"]:
-            type = user["type"][id]
+    for proj_key, proj in data.items():
+        proj_percentage = get_type_percentage(proj)
+        for type_id in proj["type"]:
+            type = proj["type"][type_id]
             if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
                 continue
             if type["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
                 continue
-            if type["Id"] not in type_info:
-                type_info[type["Id"]] = [type["FamilyType"], type["CategoryName"], type["FamilyName"], type["Name"]]
-            if user_percentage[type["Id"]] < percent_thr:  # 使用率低于阈值过滤
+            if type_id not in type_info:
+                type_info[type_id] = [type["FamilyType"], type["CategoryName"], type["FamilyName"], type["Name"]]
+            if proj_percentage[type_id] < percent_thr:  # 使用率低于阈值过滤
                 continue
     return type_info
 
@@ -243,38 +243,36 @@ def get_type_info(json_list: list):
 # ======================================================================================================================
 # =====                                            PR                                                              =====
 # ======================================================================================================================
-def get_graph_from_data(json_list: list):
+def get_graph_from_data(data: dict):
     """
     从数据中构建二分图
-    :param json_list:
+    :param data:
     :return:  a dict: {user1:{item1:1, item2:1}, item1:{user1:1, user2:1}}
     """
-    if not json_list:
+    if not data:
         return {}
     percent_thr = 0.5
     graph = {}
 
-    for user in json_list:
-        if len(user["type"]) == 0:  # 过滤掉type为空的user，即该user没有对推荐按列表中的任何type进行过行为，比如红线、轴网类型的rvt文件
+    for proj_key, proj in data.items():
+        if len(proj["type"]) == 0:  # 过滤掉type为空的user，即该user没有对推荐按列表中的任何type进行过行为，比如红线、轴网类型的rvt文件
             continue
-        tmp_elem = user["element"][0]
-        user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]
-        user_percentage = get_type_percentage(user)
-        if user_id not in graph:
-            graph[user_id] = {}
-        for id in user["type"]:
-            type = user["type"][id]
+        proj_percentage = get_type_percentage(proj)
+        if proj_key not in graph:
+            graph[proj_key] = {}
+        for type_id in proj["type"]:
+            type = proj["type"][type_id]
             if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
                 continue
             if type["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
                 continue
-            if user_percentage[type["Id"]] < percent_thr:  # 使用率低于阈值过滤
+            if proj_percentage[type_id] < percent_thr:  # 使用率低于阈值过滤
                 continue
-            type_id = "type_" + type["Id"]
-            graph[user_id][type_id] = 1
+            type_id = "type_" + type_id
+            graph[proj_key][type_id] = 1
             if type_id not in graph:
                 graph[type_id] = {}
-            graph[type_id][user_id] = 1
+            graph[type_id][proj_key] = 1
 
     # score_thr = 4.0
     # linenum = 0
@@ -353,28 +351,26 @@ def mat_all_point(m_mat: coo_matrix, vertex: list, alpha: float):
 # ======================================================================================================================
 # =====                                        item2vec                                                            =====
 # ======================================================================================================================
-def produce_train_data(json_list: list, out_file: str):
+def produce_train_data(data: dict, out_file: str):
     """
     生成item2vec的训练数据
-    :param json_list:
+    :param data:
     :param out_file:
     :return:
     """
-    if not json_list:
+    if not data:
         return
     percent_thr = 0.5  # type percent的阈值
     record = {}
-    for user in json_list:
-        user_percentage = get_type_percentage(user)
-        tmp_elem = user["element"][0]
-        user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]
-        for type_id in user_percentage:
-            if user_percentage[type_id] < percent_thr:  # 低于阈值的过滤
+    for proj_key, proj in data.items():
+        proj_percentage = get_type_percentage(proj)
+        for type_id in proj_percentage:
+            if proj_percentage[type_id] < percent_thr:  # 低于阈值的过滤
                 continue
-            if user_id not in record:
-                record[user_id] = []
-            record[user_id].append(type_id)
+            if proj_key not in record:
+                record[proj_key] = []
+            record[proj_key].append(type_id)
     fw = open(out_file, "w+")
-    for user_id in record:
-        fw.write(" ".join(record[user_id]) + "\n")
+    for proj_key in record:
+        fw.write(" ".join(record[proj_key]) + "\n")
     fw.close()

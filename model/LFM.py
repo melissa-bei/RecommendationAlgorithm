@@ -12,33 +12,31 @@ import numpy as np
 from data_preparation.preprocessing import get_type_percentage, get_avg_type_percentage, get_type_info
 
 
-def get_train_data(json_list: []):
+def get_train_data(data: dict):
     """
     为LFM模型准备训练数据
-    :param json_list:
+    :param data:
     :return: a list:[(user_id, item_id, label), ……], label is 1 or 0
     """
-    if not json_list:
+    if not data:
         return {}
     neg_dict = {}
     pos_dict = {}
     train_data = []
     percent_thr = 0.5
-    avgp = get_avg_type_percentage(json_list)
-    for user in json_list:
-        user_percentage = get_type_percentage(user)
-        tmp_elem = user["element"][0]
-        user_id = tmp_elem["FilePath"] + "\\\\" + tmp_elem["FileName"]  # user_id由路径加文件名生成
-        if user_id not in pos_dict:
-            pos_dict[user_id] = []
-        if user_id not in neg_dict:
-            neg_dict[user_id] = []
-        for type_id in user_percentage:
-            if user_percentage[type_id] > percent_thr:
-                pos_dict[user_id].append((type_id, 1))
+    avgp = get_avg_type_percentage(data)
+    for proj_key, proj in data.items():
+        proj_percentage = get_type_percentage(proj)
+        if proj_key not in pos_dict:
+            pos_dict[proj_key] = []
+        if proj_key not in neg_dict:
+            neg_dict[proj_key] = []
+        for type_id in proj_percentage:
+            if proj_percentage[type_id] > percent_thr:
+                pos_dict[proj_key].append((type_id, 1))
             else:
                 percent = avgp.get(type_id, 0)
-                neg_dict[user_id].append((type_id, percent))
+                neg_dict[proj_key].append((type_id, percent))
     # 正负样本的均衡：负采样
     for user_id in pos_dict:
         data_num = min(len(pos_dict[user_id]), len(neg_dict.get(user_id, [])))

@@ -83,18 +83,18 @@ def personal_rank_mat(graph, root, alpha, recom_num=10):
     return recom_dict
 
 
-def get_one_user_recom(json_list: list):
+def get_one_user_recom(data: dict):
     """
     测试给一个用户进行推荐
     """
-    # user = "A"
-    user = "E:\\\\cbim_revit_batch\\\\resource\\\\exportedjson\\\\02\\ 清华大学深圳国际校区\\\\02-初步设计\\\\02-建筑\\\\20190122建筑提图\\\\B座\\\\18172-B-AR&ST-F1~RF-center_A-yanxt_0122提资（房间名称更新）"
+    user = next(iter(data.keys()))
+    print(user)
     alpha = 0.6
-    graph = get_graph_from_data(json_list)
+    graph = get_graph_from_data(data)
     iter_num = 15
     recom_result = personal_rank(graph, user, alpha, iter_num, 100)
 
-    type_info = get_type_info(json_list)
+    type_info = get_type_info(data)
     for type_id in graph[user]:
         print(type_info[type_id.replace("type_", "")])
     print("------------recom result--------------")
@@ -103,16 +103,17 @@ def get_one_user_recom(json_list: list):
     return recom_result
 
 
-def get_one_user_recom_by_mat(json_list: list):
+def get_one_user_recom_by_mat(data: dict):
     """
     测试给一个用户进行推荐
     """
-    user = "E:\\\\cbim_revit_batch\\\\resource\\\\exportedjson\\\\02\\ 清华大学深圳国际校区\\\\02-初步设计\\\\02-建筑\\\\20190122建筑提图\\\\B座\\\\18172-B-AR&ST-F1~RF-center_A-yanxt_0122提资（房间名称更新）"
+    user = next(iter(data.keys()))
+    print(user)
     alpha = 0.6
-    graph = get_graph_from_data(json_list)
+    graph = get_graph_from_data(data)
     recom_result = personal_rank_mat(graph, user, alpha, 100)
 
-    type_info = get_type_info(json_list)
+    type_info = get_type_info(data)
     for type_id in graph[user]:
         print(type_info[type_id.replace("type_", "")])
     print("------------recom result--------------")

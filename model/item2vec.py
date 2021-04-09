@@ -16,26 +16,25 @@ import word2vec
 import operator
 
 
-def produce_train_data(json_list: list, out_file: str):
+def produce_train_data(data: dict, out_file: str):
     """
     生成item2vec的训练数据
-    :param json_list:
+    :param data:
     :param out_file:
     :return:
     """
-    if not json_list:
+    if not data:
         return
     percent_thr = 0.5  # type percent的阈值
     record = {}
-    for user in json_list:
-        user_percentage = get_type_percentage(user)
-        user_id = user["project_info"]["FilePath"] + "\\\\" + user["project_info"]["FileName"]  # user_id由路径加文件名生成
-        for type_id in user_percentage:
-            if user_percentage[type_id] < percent_thr:  # 低于阈值的过滤
+    for proj_key, proj in data.items():
+        proj_percentage = get_type_percentage(proj)
+        for type_id in proj_percentage:
+            if proj_percentage[type_id] < percent_thr:  # 低于阈值的过滤
                 continue
-            if user_id not in record:
-                record[user_id] = []
-            record[user_id].append(type_id)
+            if proj_key not in record:
+                record[proj_key] = []
+            record[proj_key].append(type_id)
     fw = open(out_file, "w+")
     for user_id in record:
         fw.write(" ".join(record[user_id]) + "\n")
