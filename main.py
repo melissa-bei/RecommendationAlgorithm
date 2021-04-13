@@ -7,13 +7,12 @@
 @Email  : libei@cadg.cn
 @Date   ：2021/3/24 11:14
 ================================================="""
-from .data_preparation.preprocessing import load_datas
-from common.config import Config
+from data_preparation.generate_datasets import gen_type_and_proj_datasets, load_dataset
 
 
 def main():
-    resource_dir = "E:/cbim_revit_batch/resource"
-    data_json_list = load_datas(Config(resource_dir))
+    gen_type_and_proj_datasets(False)
+    load_dataset()
 
 
 if __name__ == "__main__":
