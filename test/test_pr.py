@@ -7,31 +7,28 @@
 @Email  : libei@cadg.cn
 @Date   ：2021/3/30 14:23
 ================================================="""
-import time
-import sys
-from __init__ import *
-from common.config import Config
+# from common.config import Config
 from data_preparation.preprocessing import load_datas, get_type_info, graph_to_m, mat_all_point
 from model.PR import get_graph_from_data, get_one_user_recom, get_one_user_recom_by_mat
-
+from data_preparation.generate_datasets import load_dataset
 from util import print_run_time
 
 
 @print_run_time
 def test_pr_main():
     # 数据预处理
-    preprocessed_data = load_datas(Config())
-    # p = get_graph_from_data(data_json_list)
-    # print(p["type_6bfab83c-c282-422e-a6ba-d7c945b382f8-000fcf71"])
+    # preprocessed_data = load_datas(Config())
+    types, projs = load_dataset()
 
-    # get_one_user_recom([])
-    recom_result_base = get_one_user_recom(preprocessed_data)
+    user = next(iter(projs.keys()))
+    print(user)
+    recom_result_base = get_one_user_recom(types, projs, user)
 
     # graph = get_graph_from_data(data_json_list)
     # m, vertex, address_dict = graph_to_m(graph)
     # print(mat_all_point(m, vertex, 0.8))
 
-    recom_result_mat = get_one_user_recom_by_mat(preprocessed_data)
+    recom_result_mat = get_one_user_recom_by_mat(types, projs, user)
 
     num = 0
     for elem in recom_result_base:

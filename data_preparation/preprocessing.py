@@ -19,25 +19,37 @@ from common.config import Config
 
 def parse_json(json_name: str, config: Config):
     """
-    解析单个自定义导出的json文件，预处理附加信息和项目信息平铺
+    解析单个自定义导出的json文件，预处理附加信息和项目信息平铺。对于无效的type、element进行清洗。
     :param config: 配置文件类
     :param json_name: 给定json文件路径
     :return {"type": A dict，推荐对象的信息, "element": A list，项目与推荐对象的交互信息，即一个项目使用了多少次某个type}
     """
     json_data = json.load(open(json_name, encoding="utf8"))
+
     # 添加更新项目信息
     json_data = config.update_proj_info(json_data)
-    # 将type id换为uniqueid
-    new_type_infos = {}
+
+    # 对type进行数据清洗
+    new_type_infos = []
     for type in json_data["type_info"].values():
-        new_type_infos[type["Id"]] = type
-    # 将项目信息平铺到图元，并进行数据清洗
+        if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
+            continue
+        if type["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元，如红线、轴网类型等无效type。
+            continue
+        new_type_infos.append(type)
+
+    # 将项目信息平铺到element，并进行数据清洗
     new_element_infos = []
     for _, element in json_data["element_info"].items():
+        if element["CategoryName"] is None or element["FamilyName"] is None or element["TypeName"] is None:  # 过滤category、family、type为空的
+            continue
+        if element["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
+            continue
         element["FileName"] = json_data["project_info"]["FileName"]
         element["FilePath"] = json_data["project_info"]["FilePath"]
         # element["Elevation"] = json_data["project_info"]["Elevation"]
-        element["Address"] = (float(json_data["project_info"]["Latitude"]), float(json_data["project_info"]["Longitude"]))
+        element["Address"] = (
+        float(json_data["project_info"]["Latitude"]), float(json_data["project_info"]["Longitude"]))
         element["PlaceName"] = json_data["project_info"]["PlaceName"]
         element["TimeZone"] = json_data["project_info"]["TimeZone"]
         # element["OrganizationDescription"] = json_data["project_info"]["OrganizationDescription"]
@@ -45,13 +57,18 @@ def parse_json(json_name: str, config: Config):
         element["Author"] = json_data["project_info"]["Author"]
         element["Number"] = (json_data["project_info"]["Number"], "")[json_data["project_info"]["Number"] == "项目编号"]
         element["OwnerProject"] = (json_data["project_info"]["Name"], "")[json_data["project_info"]["Name"] == "项目名称"]
-        element["ClientName"] = (json_data["project_info"]["ClientName"], "")[json_data["project_info"]["ClientName"] == "所有者"]
+        element["ClientName"] = (json_data["project_info"]["ClientName"], "")[
+            json_data["project_info"]["ClientName"] == "所有者"]
         # element["IssueDate"] = json_data["project_info"]["IssueDate"]
         element["Status"] = (json_data["project_info"]["Status"], "")[json_data["project_info"]["Status"] == "项目状态"]
-        element["BuildingType"] = (json_data["project_info"]["BuildingType"], "")[json_data["project_info"]["BuildingType"] not in ["公建", "住宅"]]
+        element["BuildingType"] = (json_data["project_info"]["BuildingType"], "")[
+            json_data["project_info"]["BuildingType"] not in ["公建", "住宅"]]
         element["Major"] = (json_data["project_info"]["Major"], "")[~json_data["project_info"]["Major"].isalpha()]
         new_element_infos.append(element)
-    return {"type": new_type_infos, "element": new_element_infos}
+    if new_type_infos and new_element_infos:
+        return {"type": new_type_infos, "element": new_element_infos}
+    else:
+        return
 
 
 def load_datas(config: Config, num: int = 100):
@@ -59,24 +76,27 @@ def load_datas(config: Config, num: int = 100):
     从资源路径下加载数据集，即文件夹下所有json文件，将属于同一个项目下的所有rvt中的type和图元合并起来
     :param num: 测试参数，加载前num个json文件
     :param config: 资源路径配置类
-    :return datas: {"proj1": {"type": {"type_id1": {}, ...}, "element": {"element_id": {}, ...}}, "user_id2": {}, ...}
+    :return datas: {"proj1": {"type": [type1, ...], "element": [element1, ...]}, ...}
     """
     datas = {}
     count = 0
     for root, dirs, files in os.walk(config.json_dir):
         for file in files:
             json_data = parse_json(os.path.join(root, file), config)
+            if not json_data:  # 过滤掉不包含有效type和element的rvt文件
+                continue
             # 由项目、专业、设计阶段、建筑类型这四个参数确定一个独立的项目
-            tmp_elem = json_data["element"][0]
-            key = "{}-{}-{}-{}".format(tmp_elem["OwnerProject"], tmp_elem["BuildingType"],
-                                       tmp_elem["Major"], tmp_elem["Status"])
+            key = "{}-{}-{}-{}".format(json_data["element"][0]["OwnerProject"],
+                                       json_data["element"][0]["BuildingType"],
+                                       json_data["element"][0]["Major"],
+                                       json_data["element"][0]["Status"])
             if key not in datas:
                 count += 1
                 if count > num:
-                    return datas.values()
-                datas[key] = {"type": {}, "element": []}
+                    return datas
+                datas[key] = {"type": [], "element": []}
             # 如果rvt文件从属于同一个项目，则将type_info和element_info合并起来
-            datas[key]["type"].update(json_data["type"])
+            datas[key]["type"] += json_data["type"]
             datas[key]["element"] += json_data["element"]
     return datas
 
@@ -108,10 +128,6 @@ def get_type_percentage(parsed_json: dict):
 
     record = {}
     for elem in parsed_json["element"]:
-        if elem["CategoryName"] is None or elem["FamilyName"] is None or elem["TypeName"] is None:  # 过滤category、family、type为空的
-            continue
-        if elem["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
-            continue
         type_id = elem["TypeId"]  # str(int(elem["TypeId"].split("-")[-1], 16))
         if type_id not in record:
             record[type_id] = 0
@@ -122,17 +138,17 @@ def get_type_percentage(parsed_json: dict):
 # ======================================================================================================================
 # =====                                    Content based recall                                                    =====
 # ======================================================================================================================
-def get_avg_type_percentage(data: dict):
+def get_avg_type_percentage(projs: dict):
     """
     获取某个类型在项目中的平均使用占比
-    :param data:
+    :param projs:
     :return:
     """
-    if not data:
+    if not projs:
         return {}
 
     record = {}
-    for proj_key, proj in data.items():
+    for proj_key, proj in projs.items():
         proj_percentage = get_type_percentage(proj)
         for type_id in proj_percentage:
             if type_id not in record:
@@ -142,7 +158,7 @@ def get_avg_type_percentage(data: dict):
     return {type_id: round(record[type_id][0] / record[type_id][1], 3) for type_id in record}
 
 
-def get_type_cate(data: dict, avg_type_percentage: dict):
+def get_type_cate(types: dict, avg_type_percentage: dict):
     """
     获取type的相关标签，包含category、family、type
     hostobject属性都在name中
@@ -152,44 +168,35 @@ def get_type_cate(data: dict, avg_type_percentage: dict):
 
     注：没有type的过滤掉
     :param avg_type_percentage:
-    :param data:
+    :param types:
     :return:
     """
-    if not data:
+    if not types:
         return {}
     topk = 100  # 取每个标签下的前topk个type（item）
     item_cate = {}
     record = {}
     cate_item_sort = {}
-    for proj_key, proj in data.items():
-        for type_id in proj["type"]:
-            type = proj["type"][type_id]
-            if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
-                continue
+    for type_id, type in types.items():
+        if type["FamilyType"] in ["HostObject", "Other"]:  # 系统族，组合族
+            _tmp = list(map(str.strip, re.split(r"[_-]", type["Name"])))
+            cate_list = [type["FamilyType"] + "_" + type["CategoryName"] + "_" + type["FamilyName"]] + _tmp
+            # ratios = [1 / 4, 1 / 4, 1 / 4] + len(_tmp) * [1 / 4 / len(_tmp)]
+            ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
 
-            if type["FamilyType"] in ["HostObject", "Other"]:  # 系统族，组合族
-                _tmp = list(map(str.strip, re.split(r"[_-]", type["Name"])))
-                cate_list = [type["FamilyType"] + "_" + type["CategoryName"] + "_" + type["FamilyName"]] + _tmp
-                # ratios = [1 / 4, 1 / 4, 1 / 4] + len(_tmp) * [1 / 4 / len(_tmp)]
-                ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+        elif type["FamilyType"] == "FamilyInstance":  # 载入族、内建族
+            _tmp1 = list(map(str.strip, re.split(r"[_-]", type["FamilyName"])))
+            _tmp2 = list(map(str.strip, re.split(r"[_-]", type["Name"])))
+            cate_list = [type["FamilyType"] + "_" + type["CategoryName"]] + _tmp1 + _tmp2
+            # ratios = [1 / 4, 1 / 4] + len(_tmp1) * [1 / 4 / len(_tmp1)] + len(_tmp2) * [1 / 4 / len(_tmp2)]
+            ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
 
-            elif type["FamilyType"] == "FamilyInstance":  # 载入族、内建族
-                _tmp1 = list(map(str.strip, re.split(r"[_-]", type["FamilyName"])))
-                _tmp2 = list(map(str.strip, re.split(r"[_-]", type["Name"])))
-                cate_list = [type["FamilyType"] + "_" + type["CategoryName"]] + _tmp1 + _tmp2
-                # ratios = [1 / 4, 1 / 4] + len(_tmp1) * [1 / 4 / len(_tmp1)] + len(_tmp2) * [1 / 4 / len(_tmp2)]
-                ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
-
-            else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
-                continue
-            # if typeid not in item_cate:
-            #     item_cate[typeid] = {}
-            # for idx in range(len(cate_list)):
-            #     item_cate[typeid][cate_list[idx]] = ratios[idx]
-            if type_id not in item_cate:
-                item_cate[type_id] = {}
-            for idx in range(len(cate_list)):
-                item_cate[type_id][cate_list[idx]] = ratios[idx]
+        else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
+            continue
+        if type_id not in item_cate:
+            item_cate[type_id] = {}
+        for idx in range(len(cate_list)):
+            item_cate[type_id][cate_list[idx]] = ratios[idx]
 
     # 获取每个cate下item的avg_percent
     for type_id in item_cate:
@@ -211,28 +218,25 @@ def get_type_cate(data: dict, avg_type_percentage: dict):
 # ======================================================================================================================
 # =====                                            LFM                                                             =====
 # ======================================================================================================================
-def get_type_info(data: dict):
+def get_type_info(types: dict, projs: dict):
     """
     获取type的信息
-    :param data:
+    :param types:
+    :param projs:
     :return:
     """
-    if not data:
+    if not projs:
         return {}
-    percent_thr = 0.5
+    percent_thr = 0.01
     type_info = {}
-    for proj_key, proj in data.items():
+    for proj_key, proj in projs.items():
         proj_percentage = get_type_percentage(proj)
-        for type_id in proj["type"]:
-            type = proj["type"][type_id]
-            if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
-                continue
-            if type["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
-                continue
-            if type_id not in type_info:
-                type_info[type_id] = [type["FamilyType"], type["CategoryName"], type["FamilyName"], type["Name"]]
+        for type_id, percent in proj_percentage.items():
             if proj_percentage[type_id] < percent_thr:  # 使用率低于阈值过滤
                 continue
+            if type_id not in type_info:
+                type_info[type_id] = [types[type_id]["FamilyType"], types[type_id]["CategoryName"],
+                                      types[type_id]["FamilyName"], types[type_id]["Name"]]
     return type_info
 
 
@@ -243,57 +247,29 @@ def get_type_info(data: dict):
 # ======================================================================================================================
 # =====                                            PR                                                              =====
 # ======================================================================================================================
-def get_graph_from_data(data: dict):
+def get_graph_from_data(projs: dict):
     """
     从数据中构建二分图
-    :param data:
+    :param projs:
     :return:  a dict: {user1:{item1:1, item2:1}, item1:{user1:1, user2:1}}
     """
-    if not data:
+    if not projs:
         return {}
-    percent_thr = 0.5
+    percent_thr = 0.2
     graph = {}
 
-    for proj_key, proj in data.items():
-        if len(proj["type"]) == 0:  # 过滤掉type为空的user，即该user没有对推荐按列表中的任何type进行过行为，比如红线、轴网类型的rvt文件
-            continue
+    for proj_key, proj in projs.items():
         proj_percentage = get_type_percentage(proj)
         if proj_key not in graph:
             graph[proj_key] = {}
-        for type_id in proj["type"]:
-            type = proj["type"][type_id]
-            if type["CategoryName"] is None or type["FamilyName"] is None or type["Name"] is None:  # 过滤category、family、type为空的
+        for elem in proj["element"]:
+            if proj_percentage[elem["TypeId"]] < percent_thr:  # 使用率低于阈值过滤
                 continue
-            if type["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
-                continue
-            if proj_percentage[type_id] < percent_thr:  # 使用率低于阈值过滤
-                continue
-            type_id = "type_" + type_id
+            type_id = "type_" + elem["TypeId"]
             graph[proj_key][type_id] = 1
             if type_id not in graph:
                 graph[type_id] = {}
             graph[type_id][proj_key] = 1
-
-    # score_thr = 4.0
-    # linenum = 0
-    # fp = open("../data_preparation/PR_sample.txt")
-    # for line in fp:
-    #     if linenum == 0:
-    #         linenum += 1
-    #         continue
-    #     item = line.strip().split(",")
-    #     if len(item) < 3:
-    #         continue
-    #     user_id, type_id, rating = item[0], "type_" + item[1], item[2]
-    #     if float(rating) < score_thr:
-    #         continue
-    #     if user_id not in graph:
-    #         graph[user_id] = {}
-    #     graph[user_id][type_id] = 1
-    #     if type_id not in graph:
-    #         graph[type_id] = {}
-    #     graph[type_id][user_id] = 1
-    # fp.close()
     return graph
 
 
@@ -351,18 +327,19 @@ def mat_all_point(m_mat: coo_matrix, vertex: list, alpha: float):
 # ======================================================================================================================
 # =====                                        item2vec                                                            =====
 # ======================================================================================================================
-def produce_train_data(data: dict, out_file: str):
+def produce_train_data(types: dict, projs: dict, out_file: str):
     """
     生成item2vec的训练数据
     :param data:
     :param out_file:
     :return:
     """
-    if not data:
+    if not projs:
         return
-    percent_thr = 0.5  # type percent的阈值
+    percent_thr = 0.2  # type percent的阈值
     record = {}
-    for proj_key, proj in data.items():
+    c = 0
+    for proj_key, proj in projs.items():
         proj_percentage = get_type_percentage(proj)
         for type_id in proj_percentage:
             if proj_percentage[type_id] < percent_thr:  # 低于阈值的过滤
@@ -370,6 +347,8 @@ def produce_train_data(data: dict, out_file: str):
             if proj_key not in record:
                 record[proj_key] = []
             record[proj_key].append(type_id)
+            c += 1
+    print(c)
     fw = open(out_file, "w+")
     for proj_key in record:
         fw.write(" ".join(record[proj_key]) + "\n")

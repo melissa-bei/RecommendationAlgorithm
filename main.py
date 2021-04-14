@@ -11,7 +11,7 @@ from data_preparation.generate_datasets import gen_type_and_proj_datasets, load_
 
 
 def main():
-    gen_type_and_proj_datasets(False)
+    # gen_type_and_proj_datasets(False)
     load_dataset()
 
 

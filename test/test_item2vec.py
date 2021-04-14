@@ -9,7 +9,8 @@
 ================================================="""
 import os
 from model.item2vec import test_word2vec_main, test_gensim_word2vec_main
-from common.config import Config
+# from common.config import Config
+from data_preparation.generate_datasets import load_dataset
 from data_preparation.preprocessing import load_datas, produce_train_data, get_type_info
 
 
@@ -17,10 +18,11 @@ def gen_train_data():
     """
     生成item2vec的训练数据，并写入”../data/train_data.txt“
     """
-    data_json_list = load_datas(Config())
-    print(len(get_type_info(data_json_list)))
+    # data_json_list = load_datas(Config())
+    types, projs = load_dataset()
+    print(len(get_type_info(types, projs)))
     train_data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/train_data.txt")
-    produce_train_data(data_json_list, train_data_file)
+    produce_train_data(types, projs, train_data_file)
 
 
 def get_train_data():
@@ -58,7 +60,7 @@ def verify_types_num():
 
 if __name__ == "__main__":
     # 生成训练数据文件
-    # gen_train_data()
+    gen_train_data()
 
     test_word2vec_main()
     test_gensim_word2vec_main(get_train_data())

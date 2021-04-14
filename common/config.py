@@ -53,22 +53,28 @@ class Config(object):
                 project = original_json["project_info"]
 
                 project["Name"] = (project["Name"], df['project_name'][r])[~pd.isnull(df['project_name'][r])]
+
                 project["Number"] = (project["Number"], df['project_number'][r])[~pd.isnull(df['project_number'][r])]
+                project["Number"] = (project["Number"], "")[project["Number"] == "项目编号"]
+
                 project["IssueDate"] = (project["IssueDate"], df['project_issue_date'][r])[~pd.isnull(df['project_issue_date'][r])]
+
                 project["Status"] = (project["Status"], df['project_phase'][r])[~pd.isnull(df['project_phase'][r])]
+                project["Status"] = (project["Status"], "")[project["Status"] == "项目名称"]
+
                 project["PlaceName"] = (project["PlaceName"], df['project_address'][r])[~pd.isnull(df['project_address'][r])]
-                project["Latitude"] = (project["Latitude"], float(df['latitude'][r]))[~pd.isnull(df['latitude'][r])]
-                project["Longitude"] = (project["Longitude"], float(df['longitude'][r]))[~pd.isnull(df['longitude'][r])]
+
+                project["Latitude"] = (float(project["Latitude"]), float(df['latitude'][r]))[~pd.isnull(df['latitude'][r])]
+
+                project["Longitude"] = (float(project["Longitude"]), float(df['longitude'][r]))[~pd.isnull(df['longitude'][r])]
+
                 project["BuildingType"] = (project["BuildingType"], df['building_type'][r])[~pd.isnull(df['building_type'][r])]
+                project["BuildingType"] = (project["BuildingType"], "")[project["BuildingType"] not in ["公建", "住宅"]]
+
                 project["Major"] = (project["Major"], df['major'][r])[~pd.isnull(df['major'][r])]
+                project["Major"] = (project["Major"], "")[~project["Major"].isalpha()]
 
                 original_json["project_info"] = project
 
                 break
         return original_json
-
-
-
-
-
-

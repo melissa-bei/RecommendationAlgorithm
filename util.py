@@ -30,4 +30,4 @@ def print_run_time(fn):
         else:
             unit = "s"
         print("Total run time is %.1f%s\n" % (ret, unit))
-    return inner
+    return fn

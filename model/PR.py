@@ -83,18 +83,16 @@ def personal_rank_mat(graph, root, alpha, recom_num=10):
     return recom_dict
 
 
-def get_one_user_recom(data: dict):
+def get_one_user_recom(types: dict, projs: dict, user: str):
     """
     测试给一个用户进行推荐
     """
-    user = next(iter(data.keys()))
-    print(user)
     alpha = 0.6
-    graph = get_graph_from_data(data)
+    graph = get_graph_from_data(projs)
     iter_num = 15
     recom_result = personal_rank(graph, user, alpha, iter_num, 100)
 
-    type_info = get_type_info(data)
+    type_info = get_type_info(types, projs)
     for type_id in graph[user]:
         print(type_info[type_id.replace("type_", "")])
     print("------------recom result--------------")
@@ -103,17 +101,15 @@ def get_one_user_recom(data: dict):
     return recom_result
 
 
-def get_one_user_recom_by_mat(data: dict):
+def get_one_user_recom_by_mat(types: dict, projs: dict, user: str):
     """
     测试给一个用户进行推荐
     """
-    user = next(iter(data.keys()))
-    print(user)
     alpha = 0.6
-    graph = get_graph_from_data(data)
+    graph = get_graph_from_data(projs)
     recom_result = personal_rank_mat(graph, user, alpha, 100)
 
-    type_info = get_type_info(data)
+    type_info = get_type_info(types, projs)
     for type_id in graph[user]:
         print(type_info[type_id.replace("type_", "")])
     print("------------recom result--------------")

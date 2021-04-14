@@ -131,10 +131,10 @@ def test_word2vec_main():
     print(model.vectors)
     # #检索单个单词的向量
     print("=======================")
-    print(model["d0f23d00-6be8-4187-8bda-cef7f8741514-0011f87f"].shape)
-    print(model["d0f23d00-6be8-4187-8bda-cef7f8741514-0011f87f"][:10])
-    # 6.根据余弦相似度进行简单查询，检索与"d0f23d00-6be8-4187-8bda-cef7f8741514-0011f87f"相似的type:
-    indexes, metrics = model.cosine("d0f23d00-6be8-4187-8bda-cef7f8741514-0011f87f")
+    print(model["ca40c8c7-8113-411f-b9ee-7319d9af0090"].shape)
+    print(model["ca40c8c7-8113-411f-b9ee-7319d9af0090"][:10])
+    # 6.根据余弦相似度进行简单查询，检索与"ca40c8c7-8113-411f-b9ee-7319d9af0090"相似的type:
+    indexes, metrics = model.cosine("ca40c8c7-8113-411f-b9ee-7319d9af0090")
     print("=======================")
     print(indexes, metrics)
     print(model.vocab[indexes])
@@ -142,7 +142,7 @@ def test_word2vec_main():
     print(model.generate_response(indexes, metrics).tolist())
     print("=======================")
     output_file = os.path.join(root_path, r"data/sim_result.txt")
-    cal_type_sim(load_type_vec(type_vec_file), "e3e052f9-0156-11d5-9301-0000863f27ad-0000018e", output_file)
+    cal_type_sim(load_type_vec(type_vec_file), "ca40c8c7-8113-411f-b9ee-7319d9af0090", output_file)
 
 
 @print_run_time
@@ -163,5 +163,5 @@ def test_gensim_word2vec_main(data: list):
     new_model = gensim.models.Word2Vec.load(model_path)
     # 6.模型测试
     print("=========gensim.models.Word2Vec=========")
-    print(new_model.wv.similarity("aca73caa-0a01-4983-9bd8-049fd3a22af7-00071eeb",
-                                  "e7740737-f8bf-4b07-a870-a2504a4ea87a-000ae720"))
+    print(new_model.wv.similarity("ca40c8c7-8113-411f-b9ee-7319d9af0090",
+                                  "ed2cad60-428b-4708-ae23-9023ebb544bf"))

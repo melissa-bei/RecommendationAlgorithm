@@ -181,8 +181,23 @@ def gen_type_and_proj_datasets(save_dataset=True):
 
 @print_run_time
 def load_dataset():
+    """
+    从"/data/valid_projs.txt"、"/data/valid_types.txt"读取预处理好的数据
+    :return:
+    """
     types = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                         "data/valid_types.json"), "r"))
     projs = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                         "data/valid_projs.json"), "r"))
     return types, projs
+
+
+def get_original_type(new_uuid: str):
+    """
+    根据uuid查询原始的type信息
+    :param new_uuid:
+    :return:
+    """
+    types = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                        "data/valid_types.json"), "r"))
+    return types[new_uuid]

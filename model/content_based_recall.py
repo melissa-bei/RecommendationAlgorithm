@@ -12,20 +12,20 @@ from data_preparation.preprocessing import get_type_percentage, get_avg_type_per
 import operator
 
 
-def get_up(item_cate: dict, data: dict):
+def get_up(item_cate: dict, projs: dict):
     """
     用户刻画，即一个rvt文件的特征刻画
     :param item_cate: key：item_id，value：dict，key cate value percent
-    :param data:
+    :param projs:
     :return:
     """
-    if not data:
+    if not projs:
         return {}
     percent_thr = 0.5  # type percent的阈值
     topk = 10  # 用户最喜欢的类别个数
     record = {}
     up = {}
-    for proj_key, proj in data.items():
+    for proj_key, proj in projs.items():
         proj_percentage = get_type_percentage(proj)
         for type_id in proj_percentage:
             if proj_percentage[type_id] < percent_thr:  # 低于阈值的过滤
