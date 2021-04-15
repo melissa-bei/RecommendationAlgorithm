@@ -158,6 +158,74 @@ def get_avg_type_percentage(projs: dict):
     return {type_id: round(record[type_id][0] / record[type_id][1], 3) for type_id in record}
 
 
+def get_type_feature(types: dict, save_dataset=True):
+    """
+    获取type的相关标签，包含category、family、type
+    hostobject属性都在name中
+    familyinstance属性在familyname和type中
+    主要以“_”和“-”做切分。
+    other属性也取familyname和type中
+
+    注：没有type的过滤掉
+    :param types:
+    :param save_dataset:
+    :return:
+    """
+    if not types:
+        return {}
+    type2idx = {}
+    cate2idx = {}
+    cates = []
+    record = {}
+    for type_id, type in types.items():
+        if type["FamilyType"] in ["HostObject", "Other"]:  # 系统族，组合族
+            _tmp = list(map(str.strip, re.split(r"[_-]", type["Name"])))
+            cate_list = [type["FamilyType"] + "_" + type["CategoryName"] + "_" + type["FamilyName"]] + _tmp
+            # ratios = [1 / 4, 1 / 4, 1 / 4] + len(_tmp) * [1 / 4 / len(_tmp)]
+            ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+
+        elif type["FamilyType"] == "FamilyInstance":  # 载入族、内建族
+            _tmp1 = list(map(str.strip, re.split(r"[_-]", type["FamilyName"])))
+            _tmp2 = list(map(str.strip, re.split(r"[_-]", type["Name"])))
+            cate_list = [type["FamilyType"] + "_" + type["CategoryName"]] + _tmp1 + _tmp2
+            # ratios = [1 / 4, 1 / 4] + len(_tmp1) * [1 / 4 / len(_tmp1)] + len(_tmp2) * [1 / 4 / len(_tmp2)]
+            ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+
+        else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
+            continue
+        record[type_id] = [cate_list, ratios]
+        for c in cate_list:
+            if c not in cate2idx:
+                cate2idx[c] = len(cate2idx)
+                cates.append(c)
+        type2idx[type_id] = len(type2idx)
+    row = []
+    col = []
+    data = []
+    for type_id, [cate_list, _] in record.items():
+        weight = round(1 / len(cate_list), 3)
+        row_idx = type2idx[type_id]
+        for c in cate_list:
+            col_idx = cate2idx[c]
+            row.append(row_idx)
+            col.append(col_idx)
+            data.append(weight)
+    row = np.array(row)
+    col = np.array(col)
+    data = np.array(data)
+    m = coo_matrix((data, (row, col)), shape=(len(record), len(cate2idx)))
+
+    if save_dataset:
+        # 保存types特征向量
+        np.save(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npy"), m)
+        # 保存cates
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "w",
+                  encoding="utf8") as fw:
+            fw.write("\n".join(cates))
+
+    return m, cates
+
+
 def get_type_cate(types: dict, avg_type_percentage: dict):
     """
     获取type的相关标签，包含category、family、type
@@ -227,13 +295,10 @@ def get_type_info(types: dict, projs: dict):
     """
     if not projs:
         return {}
-    percent_thr = 0.01
     type_info = {}
     for proj_key, proj in projs.items():
         proj_percentage = get_type_percentage(proj)
         for type_id, percent in proj_percentage.items():
-            if proj_percentage[type_id] < percent_thr:  # 使用率低于阈值过滤
-                continue
             if type_id not in type_info:
                 type_info[type_id] = [types[type_id]["FamilyType"], types[type_id]["CategoryName"],
                                       types[type_id]["FamilyName"], types[type_id]["Name"]]
@@ -255,16 +320,12 @@ def get_graph_from_data(projs: dict):
     """
     if not projs:
         return {}
-    percent_thr = 0.2
     graph = {}
 
     for proj_key, proj in projs.items():
-        proj_percentage = get_type_percentage(proj)
         if proj_key not in graph:
             graph[proj_key] = {}
         for elem in proj["element"]:
-            if proj_percentage[elem["TypeId"]] < percent_thr:  # 使用率低于阈值过滤
-                continue
             type_id = "type_" + elem["TypeId"]
             graph[proj_key][type_id] = 1
             if type_id not in graph:
@@ -327,28 +388,22 @@ def mat_all_point(m_mat: coo_matrix, vertex: list, alpha: float):
 # ======================================================================================================================
 # =====                                        item2vec                                                            =====
 # ======================================================================================================================
-def produce_train_data(types: dict, projs: dict, out_file: str):
+def produce_train_data(projs: dict, out_file: str):
     """
     生成item2vec的训练数据
-    :param data:
+    :param projs:
     :param out_file:
     :return:
     """
     if not projs:
         return
-    percent_thr = 0.2  # type percent的阈值
     record = {}
-    c = 0
     for proj_key, proj in projs.items():
-        proj_percentage = get_type_percentage(proj)
-        for type_id in proj_percentage:
-            if proj_percentage[type_id] < percent_thr:  # 低于阈值的过滤
-                continue
+        for elem in proj["element"]:
             if proj_key not in record:
                 record[proj_key] = []
-            record[proj_key].append(type_id)
-            c += 1
-    print(c)
+            if elem["TypeId"] not in record[proj_key]:
+                record[proj_key].append(elem["TypeId"])
     fw = open(out_file, "w+")
     for proj_key in record:
         fw.write(" ".join(record[proj_key]) + "\n")

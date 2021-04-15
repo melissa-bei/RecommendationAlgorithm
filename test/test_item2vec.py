@@ -22,7 +22,7 @@ def gen_train_data():
     types, projs = load_dataset()
     print(len(get_type_info(types, projs)))
     train_data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/train_data.txt")
-    produce_train_data(types, projs, train_data_file)
+    produce_train_data(projs, train_data_file)
 
 
 def get_train_data():

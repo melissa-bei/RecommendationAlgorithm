@@ -10,6 +10,8 @@
 from __future__ import division
 from data_preparation.preprocessing import get_type_percentage, get_avg_type_percentage
 import operator
+import numpy as np
+from scipy.sparse import coo_matrix
 
 
 def get_up(item_cate: dict, projs: dict):
@@ -21,7 +23,7 @@ def get_up(item_cate: dict, projs: dict):
     """
     if not projs:
         return {}
-    percent_thr = 0.5  # type percent的阈值
+    percent_thr: float = 0.5  # type percent的阈值
     topk = 10  # 用户最喜欢的类别个数
     record = {}
     up = {}
@@ -53,7 +55,7 @@ def get_up(item_cate: dict, projs: dict):
 
 def recom(cate_item_sort: dict, up: dict, proj_key, topk=10):
     """
-
+    基于内容和用户标签的推荐
     :param cate_item_sort: reverse sort
     :param up: user profile
     :param proj_key: proj_key to recom
@@ -81,3 +83,41 @@ def recom(cate_item_sort: dict, up: dict, proj_key, topk=10):
                 break
         recom_result[proj_key] = recom_list + recom_result[proj_key]
     return recom_result
+
+
+def recom2(target: np.matrix, m: coo_matrix, types: dict, topk=20):
+    """
+    给target特征向量进行推荐
+    :param target: 目标type的特征向量，可以是m中已有的、也可以是根据标签生成的type，新type的标签必须从已有数据集得到cates中选，目前还不能自定义
+    :param m: 数据集中所有type的特征向量
+    :param types: 所有type的信息
+    :param topk: 推荐结果的个数
+    :return recom_list: 包含推荐结果和相关度的字典
+    """
+    cos_xc = cos_measure(target, m)
+    new_order = np.argsort(-cos_xc).tolist()[0]
+    type_ids = list(types.keys())
+    recom_list = []
+    for idy in new_order:
+        if (m.getrow(idy).todense() == target).min():  # 过滤推荐列表中的如果由target，则过滤
+            continue
+        recom_list.append((types[type_ids[idy]], round(cos_xc[0, idy], 3)))
+        if len(recom_list) == topk:
+            break
+    return recom_list
+
+
+def cos_measure(item_feature_vector, user_rated_items_matrix, rate=0.001):
+    """
+    计算item之间的余弦夹角相似度
+    :param item_feature_vector: 待测量的item特征向量
+    :param user_rated_items_matrix: 用户已评分的items的特征矩阵
+    :param rate:
+    :return: 待计算item与用户已评分的items的余弦夹角相识度的向量
+    """
+    x_c = (item_feature_vector * user_rated_items_matrix.T) + rate
+    mod_x = np.sqrt(item_feature_vector * item_feature_vector.T)
+    mod_c = np.sqrt((user_rated_items_matrix * user_rated_items_matrix.T).diagonal())
+    cos_xc = x_c / (mod_x * mod_c)
+
+    return cos_xc

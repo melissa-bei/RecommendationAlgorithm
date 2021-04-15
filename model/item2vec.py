@@ -27,13 +27,10 @@ def produce_train_data(data: dict, out_file: str):
     """
     if not data:
         return
-    percent_thr = 0.5  # type percent的阈值
     record = {}
     for proj_key, proj in data.items():
         proj_percentage = get_type_percentage(proj)
         for type_id in proj_percentage:
-            if proj_percentage[type_id] < percent_thr:  # 低于阈值的过滤
-                continue
             if proj_key not in record:
                 record[proj_key] = []
             record[proj_key].append(type_id)
@@ -138,7 +135,6 @@ def test_word2vec_main():
     print("=======================")
     print(indexes, metrics)
     print(model.vocab[indexes])
-    print(model.generate_response(indexes, metrics))
     print(model.generate_response(indexes, metrics).tolist())
     print("=======================")
     output_file = os.path.join(root_path, r"data/sim_result.txt")

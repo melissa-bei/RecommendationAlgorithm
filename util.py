@@ -16,7 +16,7 @@ def print_run_time(fn):
     """
     def inner(*args, **kw):
         start = time.time()
-        fn(*args, **kw)
+        output = fn(*args, **kw)
         ret = time.time() - start
         if ret < 1e-6:
             unit = "ns"
@@ -30,4 +30,5 @@ def print_run_time(fn):
         else:
             unit = "s"
         print("Total run time is %.1f%s\n" % (ret, unit))
-    return fn
+        return output
+    return inner

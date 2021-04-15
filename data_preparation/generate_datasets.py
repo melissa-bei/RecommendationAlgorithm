@@ -69,6 +69,7 @@ def parse_json(json_name: str, config: Config):
         element.pop("FamilyName")
         element.pop("FamilyType")
         element.pop("TypeName")
+        element.pop("Name")
         new_element_infos.append(element)
     if new_type_infos and new_element_infos:
         return {"project": new_proj_info, "type": new_type_infos, "element": new_element_infos}
@@ -123,17 +124,19 @@ def gen_type_and_proj_datasets(save_dataset=True):
     for proj_key, proj in raw_data.items():
         for type in proj["type"]:
             # 1.命名不规范的type预处理，形如“类型+数字”的type
-            if re.match("墙 [0-9]", type["Name"]) or \
-               re.match("屋顶 [0-9]", type["Name"]) or \
-               re.match("柱 [0-9]", type["Name"]) or \
-               re.match("结构基础 [0-9]", type["Name"]) or \
-               re.search("墙身[0-9]", type["FamilyName"]) or \
-               re.match("常规模型 [0-9]", type["FamilyName"]) or \
-               re.match("栏杆[0-9]", type["FamilyName"]) or \
-               re.match("家具 [0-9]", type["FamilyName"]):
-                key = "-".join([re.sub("[0-9 ]", "", type["CategoryName"]),
-                                re.sub("[0-9 ]", "", type["FamilyName"]),
-                                re.sub("[0-9 ]", "", type["Name"]),
+            if re.match("墙(\s*)([0-9]*)", type["Name"]) or \
+               re.match("外墙(\s*)([0-9]*)", type["Name"]) or \
+               re.match("屋顶(\s*)([0-9]*)", type["Name"]) or \
+               re.match("柱(\s*)([0-9]*)", type["Name"]) or \
+               re.match("结构基础(\s*)([0-9]*)", type["Name"]) or \
+               re.match("加密(\s*)([0-9]*)", type["Name"]) or \
+               re.match("墙身(\s*)([0-9]*)", type["FamilyName"]) or \
+               re.match("常规模型(\s*)([0-9]*)", type["FamilyName"]) or \
+               re.match("栏杆(\s*)([0-9]*)", type["FamilyName"]) or \
+               re.match("家具(\s*)([0-9]*)", type["FamilyName"]):
+                key = "-".join([re.sub("[0-9]", "", type["CategoryName"]).strip(),
+                                re.sub("[0-9]", "", type["FamilyName"].strip()),
+                                re.sub("[0-9]", "", type["Name"].strip()),
                                 type["OtherProperties"]])
                 if key in tmp_dict:
                     # 如果规范后的关键词在临时字典种已经存在的话，就直接由字典中的type uniqueId映射到新的type uuid，结束当前循环
@@ -189,6 +192,7 @@ def load_dataset():
                                         "data/valid_types.json"), "r"))
     projs = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                         "data/valid_projs.json"), "r"))
+    print(len(types))
     return types, projs
 
 
