@@ -12,9 +12,11 @@ import json
 import os
 import operator
 import re
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, save_npz, load_npz
 import numpy as np
 from common.config import Config
+from generate_datasets import split
+import operator
 
 
 def parse_json(json_name: str, config: Config):
@@ -177,19 +179,50 @@ def get_type_feature(types: dict, save_dataset=True):
     cate2idx = {}
     cates = []
     record = {}
+    tmp_type_cate_list = []
     for type_id, type in types.items():
-        if type["FamilyType"] in ["HostObject", "Other"]:  # 系统族，组合族
-            _tmp = list(map(str.strip, re.split(r"[_-]", type["Name"])))
-            cate_list = [type["FamilyType"] + "_" + type["CategoryName"] + "_" + type["FamilyName"]] + _tmp
-            # ratios = [1 / 4, 1 / 4, 1 / 4] + len(_tmp) * [1 / 4 / len(_tmp)]
-            ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+        if type["FamilyType"] in ["HostObject", "BuiltFamily", "Other"]:  # 系统族、内建族、组合族
+            # if type["CategoryName"] != "墙":
+            #     continue
+            _tmp = []
+            for c in list(map(str.strip, split(type["Name"]))):
+                if re.match(r"([-*][0-9]+[°|度])", c):
+                    continue
+                c = re.sub(r"([\(\（\[\{]*)([0-9]+)([mM# ]*)([*xX ]*)([0-9]+)([mM# ]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
+                c = re.sub("[0-9 ]", "", c) if re.match(r"([A-Za-z]*)([\u4e00-\u9fa5]+)([\u4e00-\u9fa5\s]*)([0-9]+)", c) else c
+                c = re.sub("[-]", "", c) if re.match(r"([-])([\u4e00-\u9fa5]+)", c) is not None else c
+                if c:
+                    _tmp.append(c)
+            cate_list = [type["FamilyType"],
+                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"],
+                         re.sub("[0-9 ]", "", type["FamilyName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["FamilyName"]) else type["FamilyName"]]\
+                        + _tmp
 
-        elif type["FamilyType"] == "FamilyInstance":  # 载入族、内建族
-            _tmp1 = list(map(str.strip, re.split(r"[_-]", type["FamilyName"])))
-            _tmp2 = list(map(str.strip, re.split(r"[_-]", type["Name"])))
-            cate_list = [type["FamilyType"] + "_" + type["CategoryName"]] + _tmp1 + _tmp2
-            # ratios = [1 / 4, 1 / 4] + len(_tmp1) * [1 / 4 / len(_tmp1)] + len(_tmp2) * [1 / 4 / len(_tmp2)]
-            ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
+            ratios = [8, 4, 2] + (len(cate_list)-3) * [1]
+            sum_r = sum(ratios)
+            ratios = [round(r/sum_r, 3) for r in ratios]
+
+            # ratios = [round(1 / len(cate_list), 3)] * len(cate_list)  # 所有标签权重大小相同
+
+        elif type["FamilyType"] == "ImportFamily":  # 载入族
+            # continue
+            _tmp1 = []
+            for c in list(map(str.strip, split(type["FamilyName"]))):
+                if re.match(r"([-*][0-9]+[°|度])", c):
+                    continue
+                c = re.sub(r"([\(\（\[\{]*)([0-9]+)([mM ]*)([*xX ]*)([0-9]+)([mM ]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
+                c = re.sub("[0-9 ]", "", c) if re.match(r"([A-Za-z]*)([\u4e00-\u9fa5]+)([\u4e00-\u9fa5\s]*)([0-9]+)", c) is not None else c
+                c = re.sub("[-]", "", c) if re.match(r"([-])([\u4e00-\u9fa5]+)", c) is not None else c
+                if c:
+                    _tmp1.append(c)
+            cate_list = [type["FamilyType"],
+                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"]]\
+                        + _tmp1
+
+            ratios = [8, 4] + (len(cate_list)-2) * [1]
+            sum_r = sum(ratios)
+            ratios = [round(r/sum_r, 3) for r in ratios]
+            # ratios = [round(1 / len(cate_list), 3)] * len(cate_list)  # 所有标签权重大小相同
 
         else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
             continue
@@ -199,17 +232,18 @@ def get_type_feature(types: dict, save_dataset=True):
                 cate2idx[c] = len(cate2idx)
                 cates.append(c)
         type2idx[type_id] = len(type2idx)
+        tmp_type_cate_list.append([type_id] + cate_list)
+
     row = []
     col = []
     data = []
-    for type_id, [cate_list, _] in record.items():
-        weight = round(1 / len(cate_list), 3)
+    for type_id, [cate_list, ratios] in record.items():
         row_idx = type2idx[type_id]
-        for c in cate_list:
-            col_idx = cate2idx[c]
+        for c_idx in range(len(cate_list)):
+            col_idx = cate2idx[cate_list[c_idx]]
             row.append(row_idx)
             col.append(col_idx)
-            data.append(weight)
+            data.append(ratios[c_idx])
     row = np.array(row)
     col = np.array(col)
     data = np.array(data)
@@ -217,11 +251,32 @@ def get_type_feature(types: dict, save_dataset=True):
 
     if save_dataset:
         # 保存types特征向量
-        np.save(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npy"), m)
+        save_npz(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npz"), m)
         # 保存cates
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "w",
                   encoding="utf8") as fw:
-            fw.write("\n".join(cates))
+            fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x:x[1])]))
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_catessssss.txt"), "w",
+                  encoding="utf8") as fw:
+            fw.write("\n".join([str(c) for c in tmp_type_cate_list]))
+
+    return m, cates
+
+
+def load_type_feature():
+    # 从文件加载types特征向量
+    m = load_npz(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npz"))
+    # 从文件加载cates
+    cates = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "r",
+                 encoding="utf8").read().split("\n")
+    # from sklearn.decomposition import PCA, TruncatedSVD
+    # tmp_m = np.array(m.todense())
+    # pca = PCA(n_components=0.9)
+    # a = pca.fit(tmp_m)
+    # b = pca.transform(tmp_m)
+    # # svd = TruncatedSVD(n_components=0.9)
+    # # c = svd.fit(m)
+    # # d = svd.fit_transform(m)
 
     return m, cates
 
@@ -247,14 +302,14 @@ def get_type_cate(types: dict, avg_type_percentage: dict):
     cate_item_sort = {}
     for type_id, type in types.items():
         if type["FamilyType"] in ["HostObject", "Other"]:  # 系统族，组合族
-            _tmp = list(map(str.strip, re.split(r"[_-]", type["Name"])))
+            _tmp = list(map(str.strip, split(type["Name"])))
             cate_list = [type["FamilyType"] + "_" + type["CategoryName"] + "_" + type["FamilyName"]] + _tmp
             # ratios = [1 / 4, 1 / 4, 1 / 4] + len(_tmp) * [1 / 4 / len(_tmp)]
             ratios = [round(1 / len(cate_list), 3)] * len(cate_list)
 
         elif type["FamilyType"] == "FamilyInstance":  # 载入族、内建族
-            _tmp1 = list(map(str.strip, re.split(r"[_-]", type["FamilyName"])))
-            _tmp2 = list(map(str.strip, re.split(r"[_-]", type["Name"])))
+            _tmp1 = list(map(str.strip, split(type["FamilyName"])))
+            _tmp2 = list(map(str.strip, split(type["Name"])))
             cate_list = [type["FamilyType"] + "_" + type["CategoryName"]] + _tmp1 + _tmp2
             # ratios = [1 / 4, 1 / 4] + len(_tmp1) * [1 / 4 / len(_tmp1)] + len(_tmp2) * [1 / 4 / len(_tmp2)]
             ratios = [round(1 / len(cate_list), 3)] * len(cate_list)

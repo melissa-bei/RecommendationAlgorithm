@@ -96,15 +96,22 @@ def recom2(target: np.matrix, m: coo_matrix, types: dict, topk=20):
     """
     cos_xc = cos_measure(target, m)
     new_order = np.argsort(-cos_xc).tolist()[0]
-    type_ids = list(types.keys())
-    recom_list = []
-    for idy in new_order:
-        if (m.getrow(idy).todense() == target).min():  # 过滤推荐列表中的如果由target，则过滤
+    recom_list = {}
+    for idx in new_order:
+        if (m.getrow(idx).todense() == target).min():  # 过滤推荐列表中的如果有target，则过滤
             continue
-        recom_list.append((types[type_ids[idy]], round(cos_xc[0, idy], 3)))
+        recom_list[idx] = round(cos_xc[0, idx], 3)
         if len(recom_list) == topk:
             break
     return recom_list
+
+
+def get_type_by_index(indexes: dict, types):
+    type_ids = list(types.keys())
+    result = []
+    for idx in indexes:
+        result.append(types[type_ids[idx]])
+    return result
 
 
 def cos_measure(item_feature_vector, user_rated_items_matrix, rate=0.001):
@@ -115,6 +122,16 @@ def cos_measure(item_feature_vector, user_rated_items_matrix, rate=0.001):
     :param rate:
     :return: 待计算item与用户已评分的items的余弦夹角相识度的向量
     """
+    # flag = []
+    # for v in range(item_feature_vector.shape[1]):
+    #     if item_feature_vector[0, v] < 0:
+    #         flag.append(-1)
+    #     else:
+    #         flag.append(1)
+    # for idx in range(user_rated_items_matrix.nnz):
+    #     if user_rated_items_matrix.data[idx] < 0:
+    #         if flag[user_rated_items_matrix.col[idx]] < 0:
+    #             user_rated_items_matrix.data[idx] *= -1
     x_c = (item_feature_vector * user_rated_items_matrix.T) + rate
     mod_x = np.sqrt(item_feature_vector * item_feature_vector.T)
     mod_c = np.sqrt((user_rated_items_matrix * user_rated_items_matrix.T).diagonal())

@@ -12,6 +12,7 @@ import os
 import json
 import re
 import uuid
+import numpy as np
 from util import print_run_time
 
 
@@ -28,10 +29,20 @@ def parse_json(json_name: str, config: Config):
     json_data = config.update_proj_info(json_data)
 
     # 对proj进行数据清洗
-    new_proj_info = {}
     field_list = ["Name", "BuildingType", "Status", "Major"]
-    for f in field_list:
-        new_proj_info[f] = json_data["project_info"][f]
+    new_proj_info = {f: json_data["project_info"][f] for f in field_list}
+    if new_proj_info["Status"] == "":
+        if "初步设计" in json_name or "初设" in json_name:
+            new_proj_info["Status"] = "初步设计"
+        elif "施工图" in json_name:
+            new_proj_info["Status"] = "施工图设计"
+    if new_proj_info["Major"] == "":
+        if "土建" in json_name or ("建筑" in json_name and "结构" in json_name):
+            new_proj_info["Major"] = "AS"
+        if "建筑" in json_name:
+            new_proj_info["Major"] = "A"
+        elif "结构" in json_name:
+            new_proj_info["Major"] = "S"
 
     # 对type进行数据清洗
     new_type_infos = []
@@ -40,7 +51,7 @@ def parse_json(json_name: str, config: Config):
            type["FamilyName"] is None or\
            type["Name"] is None:  # 过滤category、family、type为空的
             continue
-        if type["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元，如红线、轴网类型等无效type。
+        if type["FamilyType"] not in ["HostObject", "ImportFamily", "BuiltInFamily", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元，如红线、轴网类型等无效type。
             continue
         if type["FamilyName"] == "导入符号"or type["Category"].isdigit() or \
            type["Category"] == "OST_RvtLinks" or type["Category"] == "OST_Entourage" or\
@@ -78,6 +89,7 @@ def parse_json(json_name: str, config: Config):
 
 
 def load_raw_data(config: Config, num: int = 100):
+
     """
     从资源路径下加载数据集，即文件夹下所有json文件，将属于同一个项目下的所有rvt中的type和图元合并起来
     :param num: 测试参数，加载前num个json文件
@@ -107,10 +119,21 @@ def load_raw_data(config: Config, num: int = 100):
     return datas
 
 
+def split(instr: str):
+    """分词"""
+    # split_sign = ["-", "_", " "]
+    # sign_count = [instr.count(s) for s in split_sign]
+    # if sign_count[0] == sign_count[1]:
+    #     return re.split("[-_ ]", instr)
+    # else:
+    #     return instr.split(split_sign[np.argsort(sign_count)[-1]])
+    return re.split("[-_]", instr)
+
+
 @print_run_time
 def gen_type_and_proj_datasets(save_dataset=True):
     """
-    从原始数据集中获取所有type
+    从原始数据集中获取有效type，并进行id映射
     :return: A dict: key -> uniqueId, value -> new uuid，一个由旧的type uniqueId到新的type uuid的映射表
              A dict: key -> new uuid, value -> type info, 新的type uuid与实际type info的映射表
     """
@@ -120,37 +143,19 @@ def gen_type_and_proj_datasets(save_dataset=True):
     unique_id2uuid = {}  # 存储旧type uniqueId与新type uuid的映射关系
     new_uuid2type = {}  # 存储type uuid与实际type info的映射关系
     new_projs = {}
-    tmp_dict = {}  # 临时存储命名不规范的type
+    type_frequency = {}
     for proj_key, proj in raw_data.items():
-        for type in proj["type"]:
-            # 1.命名不规范的type预处理，形如“类型+数字”的type
-            if re.match("墙(\s*)([0-9]*)", type["Name"]) or \
-               re.match("外墙(\s*)([0-9]*)", type["Name"]) or \
-               re.match("屋顶(\s*)([0-9]*)", type["Name"]) or \
-               re.match("柱(\s*)([0-9]*)", type["Name"]) or \
-               re.match("结构基础(\s*)([0-9]*)", type["Name"]) or \
-               re.match("加密(\s*)([0-9]*)", type["Name"]) or \
-               re.match("墙身(\s*)([0-9]*)", type["FamilyName"]) or \
-               re.match("常规模型(\s*)([0-9]*)", type["FamilyName"]) or \
-               re.match("栏杆(\s*)([0-9]*)", type["FamilyName"]) or \
-               re.match("家具(\s*)([0-9]*)", type["FamilyName"]):
-                key = "-".join([re.sub("[0-9]", "", type["CategoryName"]).strip(),
-                                re.sub("[0-9]", "", type["FamilyName"].strip()),
-                                re.sub("[0-9]", "", type["Name"].strip()),
-                                type["OtherProperties"]])
-                if key in tmp_dict:
-                    # 如果规范后的关键词在临时字典种已经存在的话，就直接由字典中的type uniqueId映射到新的type uuid，结束当前循环
-                    unique_id2uuid[type["Id"]] = unique_id2uuid[tmp_dict[key]]
-                    continue
-                else:
-                    # 否则将新的key和对应的type存入字典，继续执行下面规范化type的id映射
-                    tmp_dict[key] = type["Id"]
-
-            # 2.根据标签判别type
+        tmp_set = set()
+        for type in iter(proj["type"]):
+            # 1.过滤组合族
+            if type["FamilyType"] == "Other":
+                continue
+            # 2.根据标签判别type, 形如“类型+数字”的标签，去掉数字
             key = "-".join([type["FamilyType"]] +
-                           list(map(str.strip, re.split(r"[_-]", type["CategoryName"]))) +
-                           list(map(str.strip, re.split(r"[_-]", type["FamilyName"]))) +
-                           list(map(str.strip, re.split(r"[_-]", type["Name"]))))
+                           [re.sub("[0-9] ", "", c.strip()) for c in split(type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", c)] +
+                           [re.sub("[0-9] ", "", c.strip()) for c in split(type["FamilyName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", c)] +
+                           [re.sub("[0-9] ", "", c.strip()) for c in split(type["Name"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", c)] +
+                           [type["OtherProperties"]])
             # 3.根据uniqueId判别type
             pass
 
@@ -160,26 +165,38 @@ def gen_type_and_proj_datasets(save_dataset=True):
                 key2new_uuid[key] = new_uuid
                 unique_id2uuid[type["Id"]] = new_uuid
                 new_uuid2type[new_uuid] = type
+                tmp_set.add(new_uuid)
             else:
                 unique_id2uuid[type["Id"]] = key2new_uuid[key]
+        # 5.统计type在几个项目中都出现过（项目频次）
+        for type_id in iter(tmp_set):
+            if type_id not in type_frequency:
+                type_frequency[type_id] = 0
+            type_frequency[type_id] += 1
 
-        # 5.根据unique_id2uuid映射表更新element的新type id
+        # 6.根据unique_id2uuid映射表更新element的新type id
         new_projs[proj_key] = {"project": proj["project"], "element": []}
-        for elem in proj["element"]:
+        for elem in iter(proj["element"]):
+            if elem["TypeId"] not in unique_id2uuid:
+                continue
             elem["TypeId"] = unique_id2uuid[elem["TypeId"]]
             new_projs[proj_key]["element"].append(elem)
 
-    # 6.将所有type信息保存到文件构成数据集
+    # 7.将所有type信息保存到文件构成数据集
     if save_dataset:
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "data/valid_types.json"), "w") as f:
+                               "data/valid_types.json"), "w", encoding="utf8") as f:
             json.dump(new_uuid2type, f)
             print("加载入 valid_types.json 完成...")
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "data/valid_projs.json"), "w") as f:
+                               "data/valid_projs.json"), "w", encoding="utf8") as f:
             json.dump(new_projs, f)
             print("加载入 valid_projs.json 完成...")
-    return new_uuid2type, new_projs
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "data/valid_type_fequency.json"), "w", encoding="utf8") as f:
+            json.dump(type_frequency, f)
+            print("加载入 valid_type_fequency.json 完成...")
+    return new_uuid2type, new_projs, type_frequency
 
 
 @print_run_time
@@ -189,11 +206,12 @@ def load_dataset():
     :return:
     """
     types = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                        "data/valid_types.json"), "r"))
+                                        "data/valid_types.json"), "r", encoding="utf8"))
     projs = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                        "data/valid_projs.json"), "r"))
-    print(len(types))
-    return types, projs
+                                        "data/valid_projs.json"), "r", encoding="utf8"))
+    type_fequency = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                                "data/valid_type_fequency.json"), "r"), encoding="utf8")
+    return types, projs, type_fequency
 
 
 def get_original_type(new_uuid: str):

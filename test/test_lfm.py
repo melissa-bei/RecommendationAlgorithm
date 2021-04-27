@@ -21,7 +21,7 @@ def test_lfm_main():
     test lfm model train
     """
     # preprocessed_data = load_datas(Config())
-    types, projs = load_dataset()
+    types, projs, _ = load_dataset()
 
     train_data = get_train_data(projs)
     user_vec, type_vec = lfm_train_func(train_data, 50, 0.01, 0.1, 50)

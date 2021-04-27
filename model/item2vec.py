@@ -123,22 +123,22 @@ def test_word2vec_main():
     print("=========Word2Vec=========")
     # #以numpy数组的形式来查看词汇表
     print(model.vocab)
-    # #查看整个矩阵
-    print(model.vectors.shape)
-    print(model.vectors)
-    # #检索单个单词的向量
-    print("=======================")
-    print(model["ca40c8c7-8113-411f-b9ee-7319d9af0090"].shape)
-    print(model["ca40c8c7-8113-411f-b9ee-7319d9af0090"][:10])
-    # 6.根据余弦相似度进行简单查询，检索与"ca40c8c7-8113-411f-b9ee-7319d9af0090"相似的type:
-    indexes, metrics = model.cosine("ca40c8c7-8113-411f-b9ee-7319d9af0090")
-    print("=======================")
-    print(indexes, metrics)
-    print(model.vocab[indexes])
-    print(model.generate_response(indexes, metrics).tolist())
-    print("=======================")
-    output_file = os.path.join(root_path, r"data/sim_result.txt")
-    cal_type_sim(load_type_vec(type_vec_file), "ca40c8c7-8113-411f-b9ee-7319d9af0090", output_file)
+    # # #查看整个矩阵
+    # print(model.vectors.shape)
+    # print(model.vectors)
+    # # #检索单个单词的向量
+    # print("=======================")
+    # print(model["75e06db8-6842-4388-94fe-916e574d9a19"].shape)
+    # print(model["75e06db8-6842-4388-94fe-916e574d9a19"][:10])
+    # # 6.根据余弦相似度进行简单查询，检索与"75e06db8-6842-4388-94fe-916e574d9a19"相似的type:
+    # indexes, metrics = model.cosine("75e06db8-6842-4388-94fe-916e574d9a19")
+    # print("=======================")
+    # print(indexes, metrics)
+    # print(model.vocab[indexes])
+    # print(model.generate_response(indexes, metrics).tolist())
+    # print("=======================")
+    # output_file = os.path.join(root_path, r"data/sim_result.txt")
+    # cal_type_sim(load_type_vec(type_vec_file), "75e06db8-6842-4388-94fe-916e574d9a19", output_file)
 
 
 @print_run_time
@@ -159,5 +159,5 @@ def test_gensim_word2vec_main(data: list):
     new_model = gensim.models.Word2Vec.load(model_path)
     # 6.模型测试
     print("=========gensim.models.Word2Vec=========")
-    print(new_model.wv.similarity("ca40c8c7-8113-411f-b9ee-7319d9af0090",
-                                  "ed2cad60-428b-4708-ae23-9023ebb544bf"))
+    print(new_model.wv.similarity("75e06db8-6842-4388-94fe-916e574d9a19",
+                                  "adb82a84-753d-4b0b-83cc-22a25084e5aa"))

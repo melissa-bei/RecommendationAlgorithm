@@ -19,7 +19,7 @@ def gen_train_data():
     生成item2vec的训练数据，并写入”../data/train_data.txt“
     """
     # data_json_list = load_datas(Config())
-    types, projs = load_dataset()
+    types, projs, _ = load_dataset()
     print(len(get_type_info(types, projs)))
     train_data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/train_data.txt")
     produce_train_data(projs, train_data_file)
@@ -60,7 +60,7 @@ def verify_types_num():
 
 if __name__ == "__main__":
     # 生成训练数据文件
-    gen_train_data()
+    # gen_train_data()
 
     test_word2vec_main()
     test_gensim_word2vec_main(get_train_data())
