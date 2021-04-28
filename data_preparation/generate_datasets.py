@@ -143,9 +143,8 @@ def gen_type_and_proj_datasets(save_dataset=True):
     unique_id2uuid = {}  # 存储旧type uniqueId与新type uuid的映射关系
     new_uuid2type = {}  # 存储type uuid与实际type info的映射关系
     new_projs = {}
-    type_frequency = {}
     for proj_key, proj in raw_data.items():
-        tmp_set = set()
+        new_types = {}  # 存储一个项目中的有效type
         for type in iter(proj["type"]):
             # 1.过滤组合族
             if type["FamilyType"] == "Other":
@@ -164,18 +163,14 @@ def gen_type_and_proj_datasets(save_dataset=True):
                 new_uuid = str(uuid.uuid4())  # 为新鉴别出的type生成uuid
                 key2new_uuid[key] = new_uuid
                 unique_id2uuid[type["Id"]] = new_uuid
+                type["Id"] = new_uuid
                 new_uuid2type[new_uuid] = type
-                tmp_set.add(new_uuid)
+                new_types[new_uuid] = type
             else:
                 unique_id2uuid[type["Id"]] = key2new_uuid[key]
-        # 5.统计type在几个项目中都出现过（项目频次）
-        for type_id in iter(tmp_set):
-            if type_id not in type_frequency:
-                type_frequency[type_id] = 0
-            type_frequency[type_id] += 1
 
         # 6.根据unique_id2uuid映射表更新element的新type id
-        new_projs[proj_key] = {"project": proj["project"], "element": []}
+        new_projs[proj_key] = {"project": proj["project"], "type": new_types, "element": []}
         for elem in iter(proj["element"]):
             if elem["TypeId"] not in unique_id2uuid:
                 continue
@@ -192,11 +187,7 @@ def gen_type_and_proj_datasets(save_dataset=True):
                                "data/valid_projs.json"), "w", encoding="utf8") as f:
             json.dump(new_projs, f)
             print("加载入 valid_projs.json 完成...")
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "data/valid_type_fequency.json"), "w", encoding="utf8") as f:
-            json.dump(type_frequency, f)
-            print("加载入 valid_type_fequency.json 完成...")
-    return new_uuid2type, new_projs, type_frequency
+    return new_uuid2type, new_projs
 
 
 @print_run_time
@@ -209,9 +200,7 @@ def load_dataset():
                                         "data/valid_types.json"), "r", encoding="utf8"))
     projs = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                         "data/valid_projs.json"), "r", encoding="utf8"))
-    type_fequency = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                                "data/valid_type_fequency.json"), "r"), encoding="utf8")
-    return types, projs, type_fequency
+    return types, projs
 
 
 def get_original_type(new_uuid: str):

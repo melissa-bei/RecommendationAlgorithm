@@ -38,25 +38,49 @@ def get_family_info_from_mysqldb(save_dataset=True):
           'from resource_item i, resource_item_parameter ip, resource_parameter p, resource_parameter_value pv ' \
           'where i.id=ip.resource_item_id and p.id=ip.resource_parameter_id and ip.resource_parameter_value_id=pv.id'
     rows = cursor.execute(sql)
+    item_params = cursor.fetchall()
+    # 获取结构化参数
+    sql = 'select pv.id, pv.code, pv.`value` from resource_parameter_value pv where pv.resource_parameter_id=10004 order by code'
+    rows = cursor.execute(sql)
     params = cursor.fetchall()
     # 关闭游标
     cursor.close()
     # 关闭连接
     conn.cursor()
     items_dict = {}
-    for idx in range(len(items)):
+    for idx in range(800, len(items)):
         # if items[idx]["id"] not in items_dict:
         try:
             items[idx]["resource_desc"] = pd.read_html(items[idx]["resource_desc"], header=0)[0].to_dict(orient="records")
         except:
             pass
-        items_dict[items[idx]["id"]] = items[idx]
+        if items[idx]["name"][0] not in ["A", "S"]:  # 过滤土建专业
+            continue
+        item_id = items[idx]["id"]
+        items[idx].pop("id", None)
+        items[idx].pop("resource_desc", None)
+        items_dict[item_id] = items[idx]
 
-    for idx in range(len(params)):
-        if params[idx]["resource_item_id"] in items_dict:
-            if params[idx]["parameter"] not in items_dict[params[idx]["resource_item_id"]]:
-                items_dict[params[idx]["resource_item_id"]][params[idx]["parameter"]] = []
-            items_dict[params[idx]["resource_item_id"]][params[idx]["parameter"]].append(params[idx]["value"].strip())
+    for idx in range(len(item_params)):
+        if item_params[idx]["parameter"] in ["软件版本", "几何信息深度"]:
+            continue
+        if item_params[idx]["resource_item_id"] in items_dict:
+            if item_params[idx]["parameter"] not in items_dict[item_params[idx]["resource_item_id"]]:
+                items_dict[item_params[idx]["resource_item_id"]][item_params[idx]["parameter"]] = []
+            items_dict[item_params[idx]["resource_item_id"]][item_params[idx]["parameter"]].append(item_params[idx]["value"].strip())
+
+    # 保存结果
+    if save_dataset:
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "data/standard_vocab.txt"), "w", encoding="utf8") as f:
+            f.write("[" + ",\n".join([str(item) for item in list(items_dict.values())]) + "]")
+    if save_dataset:
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               "data/standard_param.txt"), "w", encoding="utf8") as f:
+            f.write(str(params))
+
+    return items_dict
+
 
     # # 生成词表
     # vocab = set()
@@ -70,12 +94,6 @@ def get_family_info_from_mysqldb(save_dataset=True):
     #       'from resource_item i, resource_parameter_value pv, resource_item_parameter ip ' \
     #       'where i.parameter_code=pv.code and i.is_deleted=0 and ip.resource_item_id=i.id and pv.resource_parameter_id=10004' \
     #       'and ip.resource_parameter_id=51 and ip.resource_parameter_value_id=205'
-    # 保存结果
-    if save_dataset:
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               "data/standard_vocab.txt"), "w", encoding="utf8") as f:
-            f.write("\n".join([str(item) for item in list(items_dict.values())]))
-    return items_dict
 
 
 if __name__ == "__main__":

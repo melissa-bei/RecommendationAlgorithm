@@ -17,6 +17,7 @@ import numpy as np
 from common.config import Config
 from generate_datasets import split
 import operator
+from util import print_run_time
 
 
 def parse_json(json_name: str, config: Config):
@@ -160,11 +161,12 @@ def get_avg_type_percentage(projs: dict):
     return {type_id: round(record[type_id][0] / record[type_id][1], 3) for type_id in record}
 
 
-def get_type_feature(types: dict, save_dataset=True):
+@print_run_time
+def get_type_cate2(types: dict, save_dataset=True):
     """
     获取type的相关标签，包含category、family、type
-    hostobject属性都在name中
-    familyinstance属性在familyname和type中
+    hostobject、BuiltFamily属性都在name中
+    ImportFamily属性在familyname和type中
     主要以“_”和“-”做切分。
     other属性也取familyname和type中
 
@@ -175,15 +177,10 @@ def get_type_feature(types: dict, save_dataset=True):
     """
     if not types:
         return {}
-    type2idx = {}
-    cate2idx = {}
-    cates = []
     record = {}
-    tmp_type_cate_list = []
     for type_id, type in types.items():
         if type["FamilyType"] in ["HostObject", "BuiltFamily", "Other"]:  # 系统族、内建族、组合族
-            # if type["CategoryName"] != "墙":
-            #     continue
+            continue
             _tmp = []
             for c in list(map(str.strip, split(type["Name"]))):
                 if re.match(r"([-*][0-9]+[°|度])", c):
@@ -205,7 +202,8 @@ def get_type_feature(types: dict, save_dataset=True):
             # ratios = [round(1 / len(cate_list), 3)] * len(cate_list)  # 所有标签权重大小相同
 
         elif type["FamilyType"] == "ImportFamily":  # 载入族
-            # continue
+            if type["CategoryName"] != "门":
+                continue
             _tmp1 = []
             for c in list(map(str.strip, split(type["FamilyName"]))):
                 if re.match(r"([-*][0-9]+[°|度])", c):
@@ -227,19 +225,31 @@ def get_type_feature(types: dict, save_dataset=True):
         else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
             continue
         record[type_id] = [cate_list, ratios]
-        for c in cate_list:
-            if c not in cate2idx:
-                cate2idx[c] = len(cate2idx)
-                cates.append(c)
-        type2idx[type_id] = len(type2idx)
-        tmp_type_cate_list.append([type_id] + cate_list)
+
+        if save_dataset:
+            with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_catessssss.txt"), "w",
+                      encoding="utf8") as fw:
+                fw.write("\n".join([str(c) for c in record.items()]))
+
+    return record
+
+
+@print_run_time
+def cate2feature(types_cates: dict, save_dataset=True):
+    cates = []
+    cate2idx = {}
+    type2idx = {}
 
     row = []
     col = []
     data = []
-    for type_id, [cate_list, ratios] in record.items():
+    for type_id, [cate_list, ratios] in types_cates.items():
+        type2idx[type_id] = len(type2idx)
         row_idx = type2idx[type_id]
         for c_idx in range(len(cate_list)):
+            if cate_list[c_idx] not in cate2idx:
+                cate2idx[cate_list[c_idx]] = len(cate2idx)
+                cates.append(cate_list[c_idx])
             col_idx = cate2idx[cate_list[c_idx]]
             row.append(row_idx)
             col.append(col_idx)
@@ -247,7 +257,7 @@ def get_type_feature(types: dict, save_dataset=True):
     row = np.array(row)
     col = np.array(col)
     data = np.array(data)
-    m = coo_matrix((data, (row, col)), shape=(len(record), len(cate2idx)))
+    m = coo_matrix((data, (row, col)), shape=(len(types_cates), len(cate2idx)))
 
     if save_dataset:
         # 保存types特征向量
@@ -255,12 +265,30 @@ def get_type_feature(types: dict, save_dataset=True):
         # 保存cates
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "w",
                   encoding="utf8") as fw:
-            fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x:x[1])]))
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_catessssss.txt"), "w",
-                  encoding="utf8") as fw:
-            fw.write("\n".join([str(c) for c in tmp_type_cate_list]))
+            fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x: x[1])]))
 
     return m, cates
+
+
+@print_run_time
+def get_type_frequency(projs, types_cates, save_dataset=True):
+    """统计族标签的频次，不统计type是因为目前获取的有效type再不同项目中没有重复的"""
+    tag_frequency = {}
+    for proj_key, proj in projs.items():
+        for type_id, type in proj["type"].items():
+            if type_id not in types_cates:
+                continue
+            key = "-".join(types_cates[type_id][0])
+            if key not in tag_frequency:
+                tag_frequency[key] = []
+            tag_frequency[key].append(type_id)
+
+    if save_dataset:
+        # 保存cates
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_tag_frequency.txt"),
+                  "w", encoding="utf8") as fw:
+            fw.write("\n".join([str(c) for c in tag_frequency.items()]))
+    return tag_frequency
 
 
 def load_type_feature():

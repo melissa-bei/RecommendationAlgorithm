@@ -29,6 +29,6 @@ def print_run_time(fn):
             ret *= 1e3
         else:
             unit = "s"
-        print("Total run time is %.1f%s\n" % (ret, unit))
+        print("Process[%s] total run time is %.1f%s\n" % (fn.__name__, ret, unit))
         return output
     return inner

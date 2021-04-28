@@ -22,7 +22,7 @@ from util import print_run_time
 def test_cbr_main():
     # 基于相似度的推荐
     # 数据预处理
-    types, projs, type_fequency = load_dataset()
+    types, projs = load_dataset()
     # get_type_feature(types)
     m, cates = load_type_feature()
     types_list = list(types.keys())
