@@ -85,7 +85,7 @@ def recom(cate_item_sort: dict, up: dict, proj_key, topk=10):
     return recom_result
 
 
-def recom2(target: np.matrix, m: coo_matrix, types: dict, topk=20):
+def recom2(target: np.matrix, m: coo_matrix, types_cates: dict, types, topk=20):
     """
     给target特征向量进行推荐
     :param target: 目标type的特征向量，可以是m中已有的、也可以是根据标签生成的type，新type的标签必须从已有数据集得到cates中选，目前还不能自定义
@@ -95,22 +95,27 @@ def recom2(target: np.matrix, m: coo_matrix, types: dict, topk=20):
     :return recom_list: 包含推荐结果和相关度的字典
     """
     cos_xc = cos_measure(target, m)
+    type_ids = list(types_cates.keys())
     new_order = np.argsort(-cos_xc).tolist()[0]
-    recom_list = {}
+    keys = []
+    recom_list = []
     for idx in new_order:
-        if (m.getrow(idx).todense() == target).min():  # 过滤推荐列表中的如果有target，则过滤
+        k = "-".join(types_cates[type_ids[idx]][0])
+        if k in keys:
             continue
-        recom_list[idx] = round(cos_xc[0, idx], 3)
+        else:
+            keys.append(k)
+        recom_list.append([round(cos_xc[0, idx], 3), types[type_ids[idx]]])
         if len(recom_list) == topk:
             break
     return recom_list
 
 
-def get_type_by_index(indexes: dict, types):
-    type_ids = list(types.keys())
+def get_type_by_index(indexes: dict, cates):
+    type_ids = list(cates.keys())
     result = []
     for idx in indexes:
-        result.append(types[type_ids[idx]])
+        result.append(cates[type_ids[idx]])
     return result
 
 

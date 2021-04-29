@@ -59,7 +59,6 @@ def parse_json(json_name: str, config: Config):
            type["Category"] == "OST_Mass":
             continue
         new_type_infos.append(type)
-
     # 对element进行数据清洗
     new_element_infos = []
     for _, element in json_data["element_info"].items():
@@ -147,7 +146,7 @@ def gen_type_and_proj_datasets(save_dataset=True):
         new_types = {}  # 存储一个项目中的有效type
         for type in iter(proj["type"]):
             # 1.过滤组合族
-            if type["FamilyType"] == "Other":
+            if type["FamilyType"] not in ["HostObject", "BuiltInFamily", "ImportFamily", "Other"]:
                 continue
             # 2.根据标签判别type, 形如“类型+数字”的标签，去掉数字
             key = "-".join([type["FamilyType"]] +
@@ -176,7 +175,6 @@ def gen_type_and_proj_datasets(save_dataset=True):
                 continue
             elem["TypeId"] = unique_id2uuid[elem["TypeId"]]
             new_projs[proj_key]["element"].append(elem)
-
     # 7.将所有type信息保存到文件构成数据集
     if save_dataset:
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

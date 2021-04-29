@@ -15,7 +15,7 @@ import re
 from scipy.sparse import coo_matrix, save_npz, load_npz
 import numpy as np
 from common.config import Config
-from generate_datasets import split
+from data_preparation.generate_datasets import split
 import operator
 from util import print_run_time
 
@@ -164,79 +164,89 @@ def get_avg_type_percentage(projs: dict):
 @print_run_time
 def get_type_cate2(types: dict, save_dataset=True):
     """
-    获取type的相关标签，包含category、family、type
-    hostobject、BuiltFamily属性都在name中
-    ImportFamily属性在familyname和type中
-    主要以“_”和“-”做切分。
-    other属性也取familyname和type中
-
-    注：没有type的过滤掉
+    获取type的相关标签，包含category、family、type中的词，主要以“_”和“-”做切分。
+    HostObject、BuiltFamily、other属性都在name中
+    ImportFamily属性在FamilyName中
     :param types:
     :param save_dataset:
     :return:
     """
     if not types:
         return {}
+    # 1.从文件加载手动矫正的cate
+    cate_mapping = {}
+    try:
+        cate_mapping = {eval(s)[0]: eval(s)[1] for s in
+                        open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cate_mapping.txt"), "r",
+                             encoding="utf8").read().split("\n")
+                        if len(eval(s)) == 2}
+    except FileNotFoundError:
+        pass
+
     record = {}
     for type_id, type in types.items():
-        if type["FamilyType"] in ["HostObject", "BuiltFamily", "Other"]:  # 系统族、内建族、组合族
+        _tmp = []  # 存储目标字段的分词结果
+        if type["FamilyType"] in ["HostObject", "BuiltInFamily"]:  # , "Other"]:  # 系统族、内建族、组合族
             continue
-            _tmp = []
-            for c in list(map(str.strip, split(type["Name"]))):
-                if re.match(r"([-*][0-9]+[°|度])", c):
-                    continue
-                c = re.sub(r"([\(\（\[\{]*)([0-9]+)([mM# ]*)([*xX ]*)([0-9]+)([mM# ]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
-                c = re.sub("[0-9 ]", "", c) if re.match(r"([A-Za-z]*)([\u4e00-\u9fa5]+)([\u4e00-\u9fa5\s]*)([0-9]+)", c) else c
-                c = re.sub("[-]", "", c) if re.match(r"([-])([\u4e00-\u9fa5]+)", c) is not None else c
-                if c:
-                    _tmp.append(c)
+            # if type["CategoryName"] != "墙":
+            #     continue
+            # 2.不分词字段的标签
             cate_list = [type["FamilyType"],
                          re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"],
-                         re.sub("[0-9 ]", "", type["FamilyName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["FamilyName"]) else type["FamilyName"]]\
-                        + _tmp
-
-            ratios = [8, 4, 2] + (len(cate_list)-3) * [1]
-            sum_r = sum(ratios)
-            ratios = [round(r/sum_r, 3) for r in ratios]
-
-            # ratios = [round(1 / len(cate_list), 3)] * len(cate_list)  # 所有标签权重大小相同
+                         re.sub("[0-9 ]", "", type["FamilyName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["FamilyName"]) else type["FamilyName"]]
+            ratios = [8, 4, 2]
+            # 3.需要分词的字段
+            target = type["Name"]
 
         elif type["FamilyType"] == "ImportFamily":  # 载入族
+            # continue
             if type["CategoryName"] != "门":
                 continue
-            _tmp1 = []
-            for c in list(map(str.strip, split(type["FamilyName"]))):
-                if re.match(r"([-*][0-9]+[°|度])", c):
-                    continue
-                c = re.sub(r"([\(\（\[\{]*)([0-9]+)([mM ]*)([*xX ]*)([0-9]+)([mM ]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
-                c = re.sub("[0-9 ]", "", c) if re.match(r"([A-Za-z]*)([\u4e00-\u9fa5]+)([\u4e00-\u9fa5\s]*)([0-9]+)", c) is not None else c
-                c = re.sub("[-]", "", c) if re.match(r"([-])([\u4e00-\u9fa5]+)", c) is not None else c
-                if c:
-                    _tmp1.append(c)
+            # 2.不分词字段的标签
             cate_list = [type["FamilyType"],
-                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"]]\
-                        + _tmp1
+                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"]]
+            ratios = [8, 4]
+            # 3.需要分词的字段
+            target = type["FamilyName"]
 
-            ratios = [8, 4] + (len(cate_list)-2) * [1]
-            sum_r = sum(ratios)
-            ratios = [round(r/sum_r, 3) for r in ratios]
-            # ratios = [round(1 / len(cate_list), 3)] * len(cate_list)  # 所有标签权重大小相同
-
-        else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些
+        else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些，有3886个type
             continue
+        # 4.分词字段的标签
+        for c in list(map(str.strip, split(target))):
+            if re.match(r"([-]*[0-9]+[°|度])", c):
+                continue
+            c = re.sub(r"([\(\（\[\{]*)([0-9]+)(\.*)([0-9]*)([mM# ]*)([*xX ]*)([0-9]+)(\.*)([0-9]*)([mM# ]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
+            c = re.sub("[0-9 ]", "", c) if re.match(r"([A-Za-z]*)([\u4e00-\u9fa5]+)([\u4e00-\u9fa5\s]*)([0-9]+)", c) else c
+            c = re.sub("[-]", "", c) if re.match(r"([-])([\u4e00-\u9fa5]+)", c) is not None else c
+            if re.match(r"([0-9+]+)", c):
+                continue
+            if c:
+                _tmp.append(c)
+        cate_list += _tmp
+        ratios += len(_tmp) * [1]
+        # 5.校正标签
+        tmp_cate = cate_list.copy()
+        for c in tmp_cate:
+            if c == '双轨侧装lvx1':
+                pass
+            if c in cate_mapping and ratios[tmp_cate.index(c)] == 1:
+                cate_list.remove(c)
+                cate_list += cate_mapping[c]
+                ratios += (len(cate_mapping[c]) - 1) * [1]
+
         record[type_id] = [cate_list, ratios]
 
-        if save_dataset:
-            with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_catessssss.txt"), "w",
-                      encoding="utf8") as fw:
-                fw.write("\n".join([str(c) for c in record.items()]))
+    if save_dataset:
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_cates.txt"),
+                  "w", encoding="utf8") as fw:
+            fw.write("\n".join([str(c) for c in record.items()]))
 
     return record
 
 
 @print_run_time
 def cate2feature(types_cates: dict, save_dataset=True):
-    cates = []
+    cates = set()
     cate2idx = {}
     type2idx = {}
 
@@ -249,7 +259,7 @@ def cate2feature(types_cates: dict, save_dataset=True):
         for c_idx in range(len(cate_list)):
             if cate_list[c_idx] not in cate2idx:
                 cate2idx[cate_list[c_idx]] = len(cate2idx)
-                cates.append(cate_list[c_idx])
+                cates.add(cate_list[c_idx])
             col_idx = cate2idx[cate_list[c_idx]]
             row.append(row_idx)
             col.append(col_idx)
@@ -265,7 +275,8 @@ def cate2feature(types_cates: dict, save_dataset=True):
         # 保存cates
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "w",
                   encoding="utf8") as fw:
-            fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x: x[1])]))
+            # fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x: x[1])]))
+            fw.write("\n".join([str(c) for c in sorted(cates)]))
 
     return m, cates
 
@@ -275,13 +286,22 @@ def get_type_frequency(projs, types_cates, save_dataset=True):
     """统计族标签的频次，不统计type是因为目前获取的有效type再不同项目中没有重复的"""
     tag_frequency = {}
     for proj_key, proj in projs.items():
-        for type_id, type in proj["type"].items():
+        tmp = set()
+        for type_id in proj["type"]:
             if type_id not in types_cates:
                 continue
-            key = "-".join(types_cates[type_id][0])
+            tmp.add("-".join(types_cates[type_id][0]))
+        for key in tmp:
             if key not in tag_frequency:
-                tag_frequency[key] = []
-            tag_frequency[key].append(type_id)
+                tag_frequency[key] = 0
+            tag_frequency[key] += 1
+        # for type_id in proj["type"]:
+        #     if type_id not in types_cates:
+        #         continue
+        #     key = "-".join(types_cates[type_id][0])
+        #     if key not in tag_frequency:
+        #         tag_frequency[key] = []
+        #     tag_frequency[key].append(type_id)
 
     if save_dataset:
         # 保存cates
@@ -291,22 +311,19 @@ def get_type_frequency(projs, types_cates, save_dataset=True):
     return tag_frequency
 
 
+@print_run_time
 def load_type_feature():
     # 从文件加载types特征向量
     m = load_npz(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npz"))
     # 从文件加载cates
-    cates = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "r",
-                 encoding="utf8").read().split("\n")
-    # from sklearn.decomposition import PCA, TruncatedSVD
-    # tmp_m = np.array(m.todense())
-    # pca = PCA(n_components=0.9)
-    # a = pca.fit(tmp_m)
-    # b = pca.transform(tmp_m)
-    # # svd = TruncatedSVD(n_components=0.9)
-    # # c = svd.fit(m)
-    # # d = svd.fit_transform(m)
-
-    return m, cates
+    cates = {s for s in
+             open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "r",
+                  encoding="utf8").read().split("\n")}
+    # 从文件加载types的标签
+    types_cates = {eval(s)[0]: eval(s)[1] for s in
+                   open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_cates.txt"), "r",
+                        encoding="utf8").read().split("\n")}
+    return types_cates, m, cates
 
 
 def get_type_cate(types: dict, avg_type_percentage: dict):

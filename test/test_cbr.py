@@ -8,7 +8,7 @@
 @Date   ：2021/3/26 10:08
 ================================================="""
 # from common.config import Config
-from data_preparation.preprocessing import load_datas, get_avg_type_percentage, get_type_cate, get_type_feature, load_type_feature
+from data_preparation.preprocessing import load_datas, get_avg_type_percentage, get_type_cate, load_type_feature
 from data_preparation.generate_datasets import load_dataset
 from model.content_based_recall import get_up, recom, recom2, get_type_by_index
 import os
@@ -23,25 +23,19 @@ def test_cbr_main():
     # 基于相似度的推荐
     # 数据预处理
     types, projs = load_dataset()
-    # get_type_feature(types)
-    m, cates = load_type_feature()
-    types_list = list(types.keys())
+    types_cates, m, cates = load_type_feature()
+    types_list = list(types_cates.keys())
     out_str = ""
     for idx in range(20):  # random.sample(range(len(types)), 20):  # 取任意20个type进行推荐测试
         # 获取推荐结果
-        recom_type_ids = recom2(m.getrow(idx).todense(), m, types)
-        # 根据id获取type
-        recom_types = get_type_by_index(recom_type_ids, types)
+        recom_result = recom2(m.getrow(idx).todense(), m, types_cates, types)
         print("=========target==========")
         print(types[types_list[idx]])
         out_str += "=========target==========\n"
         out_str += "{}\n".format(types[types_list[idx]])
         print("=========recom list==========")
         out_str += "=========recom list==========\n"
-        tmp = list(recom_type_ids.keys())
-        for idx in range(len(recom_type_ids)):
-            sim_score = recom_type_ids[tmp[idx]]
-            type = recom_types[idx]
+        for sim_score, type in recom_result:
             print(sim_score, type)
             out_str += "{} {}\n".format(sim_score, type)
         print()
