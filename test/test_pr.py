@@ -8,7 +8,7 @@
 @Date   ：2021/3/30 14:23
 ================================================="""
 # from common.config import Config
-from data_preparation.preprocessing import load_datas, get_type_info, graph_to_m, mat_all_point
+from data_preparation.preprocessing import get_type_info, graph_to_m, mat_all_point
 from model.PR import get_graph_from_data, get_one_user_recom, get_one_user_recom_by_mat
 from data_preparation.generate_datasets import load_dataset
 from util import print_run_time
@@ -17,7 +17,6 @@ from util import print_run_time
 @print_run_time
 def test_pr_main():
     # 数据预处理
-    # preprocessed_data = load_datas(Config())
     types, projs = load_dataset()
 
     user = next(iter(projs.keys()))

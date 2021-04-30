@@ -8,7 +8,7 @@
 @Date   ：2021/3/29 14:35
 ================================================="""
 # from common.config import Config
-from data_preparation.preprocessing import load_datas, get_type_info
+from data_preparation.preprocessing import get_type_info
 from data_preparation.generate_datasets import load_dataset
 from model.LFM import get_train_data, lfm_train_func, get_recom_result, ana_recom_result
 
@@ -20,7 +20,6 @@ def test_lfm_main():
     """
     test lfm model train
     """
-    # preprocessed_data = load_datas(Config())
     types, projs, _ = load_dataset()
 
     train_data = get_train_data(projs)

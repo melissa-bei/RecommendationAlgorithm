@@ -11,14 +11,13 @@ import os
 from model.item2vec import test_word2vec_main, test_gensim_word2vec_main
 # from common.config import Config
 from data_preparation.generate_datasets import load_dataset
-from data_preparation.preprocessing import load_datas, produce_train_data, get_type_info
+from data_preparation.preprocessing import produce_train_data, get_type_info
 
 
 def gen_train_data():
     """
     生成item2vec的训练数据，并写入”../data/train_data.txt“
     """
-    # data_json_list = load_datas(Config())
     types, projs, _ = load_dataset()
     print(len(get_type_info(types, projs)))
     train_data_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/train_data.txt")

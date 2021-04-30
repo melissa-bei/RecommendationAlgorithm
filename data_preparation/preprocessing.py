@@ -179,21 +179,20 @@ def get_type_cate2(types: dict, save_dataset=True):
         cate_mapping = {eval(s)[0]: eval(s)[1] for s in
                         open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cate_mapping.txt"), "r",
                              encoding="utf8").read().split("\n")
-                        if len(eval(s)) == 2}
+                        if s and len(eval(s)) == 2}
     except FileNotFoundError:
         pass
 
     record = {}
     for type_id, type in types.items():
-        _tmp = []  # 存储目标字段的分词结果
         if type["FamilyType"] in ["HostObject", "BuiltInFamily"]:  # , "Other"]:  # 系统族、内建族、组合族
-            continue
-            # if type["CategoryName"] != "墙":
-            #     continue
+            # continue
+            if type["CategoryName"] != "墙":
+                continue
             # 2.不分词字段的标签
             cate_list = [type["FamilyType"],
-                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"],
-                         re.sub("[0-9 ]", "", type["FamilyName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["FamilyName"]) else type["FamilyName"]]
+                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5A-Za-z\-_\s]+)([0-9]+)", type["CategoryName"]) else type["CategoryName"],
+                         re.sub("[0-9 ]", "", type["FamilyName"]) if re.match(r"([\u4e00-\u9fa5A-Za-z\-_\s]+)([0-9]+)", type["FamilyName"]) else type["FamilyName"]]
             ratios = [8, 4, 2]
             # 3.需要分词的字段
             target = type["Name"]
@@ -204,7 +203,7 @@ def get_type_cate2(types: dict, save_dataset=True):
                 continue
             # 2.不分词字段的标签
             cate_list = [type["FamilyType"],
-                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", type["CategoryName"]) else type["CategoryName"]]
+                         re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5A-Za-z\-_\s]+)([0-9]+)", type["CategoryName"]) else type["CategoryName"]]
             ratios = [8, 4]
             # 3.需要分词的字段
             target = type["FamilyName"]
@@ -212,23 +211,22 @@ def get_type_cate2(types: dict, save_dataset=True):
         else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些，有3886个type
             continue
         # 4.分词字段的标签
+        _tmp = set()  # 存储目标字段的分词结果
         for c in list(map(str.strip, split(target))):
             if re.match(r"([-]*[0-9]+[°|度])", c):
                 continue
-            c = re.sub(r"([\(\（\[\{]*)([0-9]+)(\.*)([0-9]*)([mM# ]*)([*xX ]*)([0-9]+)(\.*)([0-9]*)([mM# ]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
-            c = re.sub("[0-9 ]", "", c) if re.match(r"([A-Za-z]*)([\u4e00-\u9fa5]+)([\u4e00-\u9fa5\s]*)([0-9]+)", c) else c
-            c = re.sub("[-]", "", c) if re.match(r"([-])([\u4e00-\u9fa5]+)", c) is not None else c
+            c = re.sub(r"([\(\（\[\{]*)([0-9]+)(\.*)([0-9]*)([mM# ]*)([*xX ]*)([0-9]+)(\.*)([0-9]*)([mM# 厚宽]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
             if re.match(r"([0-9+]+)", c):
                 continue
-            if c:
-                _tmp.append(c)
+            for i in (re.split("[0-9-_ ()（）和]", c)):
+                i = re.sub(r"([\u4e00-\u9fa5]+)([A-Za-z]+)", "", i)
+                if i:
+                    _tmp.add(i)
         cate_list += _tmp
         ratios += len(_tmp) * [1]
         # 5.校正标签
         tmp_cate = cate_list.copy()
         for c in tmp_cate:
-            if c == '双轨侧装lvx1':
-                pass
             if c in cate_mapping and ratios[tmp_cate.index(c)] == 1:
                 cate_list.remove(c)
                 cate_list += cate_mapping[c]
@@ -276,7 +274,7 @@ def cate2feature(types_cates: dict, save_dataset=True):
         with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "w",
                   encoding="utf8") as fw:
             # fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x: x[1])]))
-            fw.write("\n".join([str(c) for c in sorted(cates)]))
+            fw.write("\n".join(["'" + str(c) + "', " for c in sorted(cates)]))
 
     return m, cates
 
