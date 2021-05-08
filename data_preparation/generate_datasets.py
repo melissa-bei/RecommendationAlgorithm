@@ -66,7 +66,7 @@ def parse_json(json_name: str, config: Config):
            element["FamilyName"] is None or\
            element["TypeName"] is None:  # 过滤category、family、type为空的
             continue
-        if element["FamilyType"] not in ["HostObject", "FamilyInstance", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
+        if element["FamilyType"] not in ["HostObject", "ImportFamily", "BuiltInFamily", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
             continue
         if element["FamilyName"] == "导入符号"or element["Category"].isdigit() or \
            element["Category"] == "OST_RvtLinks" or element["Category"] == "OST_Entourage" or\
