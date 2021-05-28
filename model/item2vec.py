@@ -12,6 +12,7 @@ from data_preparation.preprocessing import get_type_percentage
 import numpy as np
 import os
 import gensim
+from gensim.models import FastText
 import word2vec
 import operator
 
@@ -151,13 +152,17 @@ def test_gensim_word2vec_main(data: list):
     # 1.生成训练数据文件
     # 2.从文件读取数据
     # 3.训练模型
-    new_model = gensim.models.Word2Vec(data, size=128, window=5, min_count=1, sample=1e-3, hs=0, negative=5, iter=100)
+    # new_model = gensim.models.Word2Vec(data, size=128, window=5, min_count=1, sample=1e-3, hs=0, negative=5, iter=100)
+    # new_model = FastText(data, size=128, window=5, min_count=1, sample=1e-3, hs=0, negative=5, iter=100)
     # 4.保存模型
     model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/sample_model")
-    new_model.save(model_path)
+    # new_model.save(model_path)
     # 5.从模型文件重载模型
-    new_model = gensim.models.Word2Vec.load(model_path)
+    # new_model = gensim.models.Word2Vec.load(model_path)
+    new_model = FastText.load(model_path)
     # 6.模型测试
-    print("=========gensim.models.Word2Vec=========")
-    print(new_model.wv.similarity("75e06db8-6842-4388-94fe-916e574d9a19",
-                                  "adb82a84-753d-4b0b-83cc-22a25084e5aa"))
+    # print("=========gensim.models.Word2Vec=========")
+    # print(new_model.wv.similarity("75e06db8-6842-4388-94fe-916e574d9a19",
+    #                               "adb82a84-753d-4b0b-83cc-22a25084e5aa"))
+    print("=========fasttext=========")
+    print(new_model.wv.most_similar("A-门嵌板-单扇地弹无框铝门"))

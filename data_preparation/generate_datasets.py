@@ -51,7 +51,7 @@ def parse_json(json_name: str, config: Config):
            type["FamilyName"] is None or\
            type["Name"] is None:  # 过滤category、family、type为空的
             continue
-        if type["FamilyType"] not in ["HostObject", "ImportFamily", "BuiltInFamily", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元，如红线、轴网类型等无效type。
+        if type["FamilyType"] not in ["HostObject", "ImportFamily", "BuiltInFamily", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元，如红线、轴网类型等无效type，目前不做分析。
             continue
         if type["FamilyName"] == "导入符号"or type["Category"].isdigit() or \
            type["Category"] == "OST_RvtLinks" or type["Category"] == "OST_Entourage" or\
@@ -66,7 +66,7 @@ def parse_json(json_name: str, config: Config):
            element["FamilyName"] is None or\
            element["TypeName"] is None:  # 过滤category、family、type为空的
             continue
-        if element["FamilyType"] not in ["HostObject", "ImportFamily", "BuiltInFamily", "Other"]:  # 过滤其他，包含不可见图元以及非常用图元。
+        if element["FamilyType"] not in ["HostObject", "ImportFamily", "BuiltInFamily", "Other"]:
             continue
         if element["FamilyName"] == "导入符号"or element["Category"].isdigit() or \
            element["Category"] == "OST_RvtLinks" or element["Category"] == "OST_Entourage" or\
@@ -145,9 +145,6 @@ def gen_type_and_proj_datasets(save_dataset=True):
     for proj_key, proj in raw_data.items():
         new_types = {}  # 存储一个项目中的有效type
         for type in iter(proj["type"]):
-            # 1.过滤组合族
-            if type["FamilyType"] not in ["HostObject", "BuiltInFamily", "ImportFamily", "Other"]:
-                continue
             # 2.根据标签判别type, 形如“类型+数字”的标签，去掉数字
             key = "-".join([type["FamilyType"]] +
                            [re.sub("[0-9] ", "", c.strip()) for c in split(type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5]+)(\s*)([0-9]+)", c)] +

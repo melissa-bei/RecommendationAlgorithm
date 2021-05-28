@@ -187,8 +187,8 @@ def get_type_cate2(types: dict, save_dataset=True):
     for type_id, type in types.items():
         if type["FamilyType"] in ["HostObject", "BuiltInFamily"]:  # , "Other"]:  # 系统族、内建族、组合族
             # continue
-            if type["CategoryName"] != "墙":
-                continue
+            # if type["CategoryName"] != "墙":
+            #     continue
             # 2.不分词字段的标签
             cate_list = [type["FamilyType"],
                          re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5A-Za-z\-_\s]+)([0-9]+)", type["CategoryName"]) else type["CategoryName"],
@@ -196,24 +196,22 @@ def get_type_cate2(types: dict, save_dataset=True):
             ratios = [8, 4, 2]
             # 3.需要分词的字段
             target = type["Name"]
-
         elif type["FamilyType"] == "ImportFamily":  # 载入族
             # continue
-            if type["CategoryName"] != "门":
-                continue
+            # if type["CategoryName"] != "门":
+            #     continue
             # 2.不分词字段的标签
             cate_list = [type["FamilyType"],
                          re.sub("[0-9 ]", "", type["CategoryName"]) if re.match(r"([\u4e00-\u9fa5A-Za-z\-_\s]+)([0-9]+)", type["CategoryName"]) else type["CategoryName"]]
             ratios = [8, 4]
             # 3.需要分词的字段
             target = type["FamilyName"]
-
-        else:  # 过滤其他，包含不可见图元以及非常用图元。导致item_cate比json文件中的type_info少了一些，有3886个type
+        else:
             continue
         # 4.分词字段的标签
-        _tmp = set()  # 存储目标字段的分词结果
+        _tmp = []  # 存储目标字段的分词结果
         for c in list(map(str.strip, split(target))):
-            if re.match(r"([-]*[0-9]+[°|度])", c):
+            if re.match(r"([-]*[0-9]+[°|度])", c):  # 单独处理“角度”这一特殊标记
                 continue
             c = re.sub(r"([\(\（\[\{]*)([0-9]+)(\.*)([0-9]*)([mM# ]*)([*xX ]*)([0-9]+)(\.*)([0-9]*)([mM# 厚宽]*)([\)\）\]\}]*)", "", c).strip()  # 过滤尺寸参数
             if re.match(r"([0-9+]+)", c):
@@ -221,23 +219,23 @@ def get_type_cate2(types: dict, save_dataset=True):
             for i in (re.split("[0-9-_ ()（）和]", c)):
                 i = re.sub(r"([\u4e00-\u9fa5]+)([A-Za-z]+)", "", i)
                 if i:
-                    _tmp.add(i)
+                    _tmp.append(i)
         cate_list += _tmp
         ratios += len(_tmp) * [1]
         # 5.校正标签
         tmp_cate = cate_list.copy()
         for c in tmp_cate:
             if c in cate_mapping and ratios[tmp_cate.index(c)] == 1:
-                cate_list.remove(c)
-                cate_list += cate_mapping[c]
-                ratios += (len(cate_mapping[c]) - 1) * [1]
+                idx = cate_list.index(c)
+                cate_list = cate_list[:idx] + cate_mapping[c] + cate_list[idx+1:]
+                ratios = ratios[:idx] + len(cate_mapping[c]) * [1] + ratios[idx+1:]
 
         record[type_id] = [cate_list, ratios]
 
     if save_dataset:
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_cates.txt"),
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_cates.json"),
                   "w", encoding="utf8") as fw:
-            fw.write("\n".join([str(c) for c in record.items()]))
+            json.dump(record, fw)
 
     return record
 
@@ -271,10 +269,9 @@ def cate2feature(types_cates: dict, save_dataset=True):
         # 保存types特征向量
         save_npz(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npz"), m)
         # 保存cates
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "w",
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.json"), "w",
                   encoding="utf8") as fw:
-            # fw.write("\n".join([str(c) for c in sorted(list(zip(*(range(len(cates)), cates))), key=lambda x: x[1])]))
-            fw.write("\n".join(["'" + str(c) + "', " for c in sorted(cates)]))
+            fw.write(json.dumps(sorted(cates)))
 
     return m, cates
 
@@ -303,9 +300,9 @@ def get_type_frequency(projs, types_cates, save_dataset=True):
 
     if save_dataset:
         # 保存cates
-        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_tag_frequency.txt"),
+        with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_tag_frequency.json"),
                   "w", encoding="utf8") as fw:
-            fw.write("\n".join([str(c) for c in tag_frequency.items()]))
+            json.dump(tag_frequency, fw)
     return tag_frequency
 
 
@@ -314,13 +311,11 @@ def load_type_feature():
     # 从文件加载types特征向量
     m = load_npz(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_vec.npz"))
     # 从文件加载cates
-    cates = {s for s in
-             open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_cates.txt"), "r",
-                  encoding="utf8").read().split("\n")}
+    cates = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                        r"data/cb_cates.json"), "r", encoding="utf8"))
     # 从文件加载types的标签
-    types_cates = {eval(s)[0]: eval(s)[1] for s in
-                   open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), r"data/cb_type_cates.txt"), "r",
-                        encoding="utf8").read().split("\n")}
+    types_cates = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                              "data/cb_type_cates.json"), "r", encoding="utf8"))
     return types_cates, m, cates
 
 
@@ -486,6 +481,28 @@ def mat_all_point(m_mat: coo_matrix, vertex: list, alpha: float):
 # ======================================================================================================================
 # =====                                        item2vec                                                            =====
 # ======================================================================================================================
+# def produce_train_data(projs: dict, out_file: str):
+#     """
+#     生成item2vec的训练数据
+#     :param projs:
+#     :param out_file:
+#     :return:
+#     """
+#     if not projs:
+#         return
+#     record = {}
+#     for proj_key, proj in projs.items():
+#         for elem in proj["element"]:
+#             if proj_key not in record:
+#                 record[proj_key] = []
+#             if elem["TypeId"] not in record[proj_key]:
+#                 record[proj_key].append(elem["TypeId"])
+#     fw = open(out_file, "w+")
+#     for proj_key in record:
+#         fw.write(" ".join(record[proj_key]) + "\n")
+#     fw.close()
+
+
 def produce_train_data(projs: dict, out_file: str):
     """
     生成item2vec的训练数据
@@ -493,16 +510,16 @@ def produce_train_data(projs: dict, out_file: str):
     :param out_file:
     :return:
     """
+    import jieba
     if not projs:
         return
-    record = {}
+    types_cates, _, _ = load_type_feature()
+    record = []
     for proj_key, proj in projs.items():
-        for elem in proj["element"]:
-            if proj_key not in record:
-                record[proj_key] = []
-            if elem["TypeId"] not in record[proj_key]:
-                record[proj_key].append(elem["TypeId"])
-    fw = open(out_file, "w+")
-    for proj_key in record:
-        fw.write(" ".join(record[proj_key]) + "\n")
-    fw.close()
+        for type_id in proj["type"]:
+            if type_id not in types_cates:
+                continue
+            record.append(types_cates[type_id][0])
+    with open(out_file, "w+", encoding="utf-8") as fw:
+        for t in record:
+            fw.write(" ".join(t) + "\n")
